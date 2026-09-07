@@ -1,5 +1,6 @@
+-- LINES RWEWE
 local LucidUI = {}
-LucidUI.Version = "0.3.0"
+LucidUI.Version = "0.4.4-safe"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -946,8 +947,7 @@ local OriginalCreateWindowV4 = LucidUI.CreateWindow
 
 function LucidUI:CreateWindow(options)
 	options=options or {}
-	local loading=options.Loading
-	if loading == nil then loading=true end
+	local loading=options.Loading==true
 
 	local loadingGui
 	if loading then
@@ -1013,10 +1013,8 @@ function LucidUI:CreateWindow(options)
 
 	if loadingGui then loadingGui:Destroy() end
 
-	window.Main.Size=window.Size-UDim2.fromOffset(34,34)
-	window.Main.BackgroundTransparency=1
-	window.Shadow.BackgroundTransparency=1
-	tween(window.Main,.3,{Size=window.Size,BackgroundTransparency=0})
+	window.Main.Size=window.Size
+	window.Main.BackgroundTransparency=0
 	window.Shadow.Visible=false
 
 	window:_CreateCommandPalette()
@@ -1024,6 +1022,20 @@ function LucidUI:CreateWindow(options)
 	window:_CreateToastCenter()
 	if window.FirstP and window.Visible then
 		window.SetVisible(true)
+	end
+	if window.FirstP then
+		local RunService=game:GetService("RunService")
+		table.insert(window.Connections,RunService.RenderStepped:Connect(function()
+			if window._Destroyed then return end
+			if window.Visible and window.Gui and window.Gui.Parent then
+				if UserInputService.MouseBehavior~=Enum.MouseBehavior.Default then
+					UserInputService.MouseBehavior=Enum.MouseBehavior.Default
+				end
+				if not UserInputService.MouseIconEnabled then
+					UserInputService.MouseIconEnabled=true
+				end
+			end
+		end))
 	end
 
 	table.insert(window.Connections,UserInputService.InputBegan:Connect(function(input,processed)
@@ -1113,6 +1125,9 @@ end
 
 function Window:Destroy()
 	if self._Destroyed then return end
+	if self.FirstP and self.Visible then
+		self.SetVisible(false)
+	end
 	self._Destroyed=true
 	lucidDisconnectAll(self.Connections)
 	if self.Gui then self.Gui:Destroy() end
@@ -2518,6 +2533,6 @@ LucidUI.APICatalog = {
 	Tab={"AddSection","AddSubTabs"}
 }
 
-LucidUI.Version="0.4.3"
+LucidUI.Version="0.4.4-safe"
 
 return LucidUI
