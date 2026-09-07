@@ -1,175 +1,147 @@
---- EEEEEEEEEEEEEE
+------- EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 local LucidUI = {}
-LucidUI.Version = "0.4.5-layout"
+LucidUI.Version = "6.0.0"
 
 local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
-local Theme = {
-	Background = Color3.fromRGB(2,2,3),
-	Topbar = Color3.fromRGB(5,5,7),
-	Surface = Color3.fromRGB(7,7,10),
-	Surface2 = Color3.fromRGB(11,11,15),
-	Surface3 = Color3.fromRGB(16,16,22),
-	Hover = Color3.fromRGB(22,22,30),
-	Accent = Color3.fromRGB(112,82,255),
-	Text = Color3.fromRGB(246,246,250),
-	Muted = Color3.fromRGB(128,128,145),
-	Border = Color3.fromRGB(30,30,40),
-	Success = Color3.fromRGB(69,210,139),
-	Warning = Color3.fromRGB(255,191,74),
+local LP = Players.LocalPlayer
+
+local GLOBAL_ENV = (getgenv and getgenv()) or _G
+local REGISTRY_KEY = "__LUCID_UI_RUNTIME_REGISTRY_V6"
+
+local function cleanupKnownLibraries()
+	local registry = GLOBAL_ENV[REGISTRY_KEY]
+	if type(registry) == "table" then
+		if type(registry.Destroy) == "function" then
+			pcall(registry.Destroy)
+		end
+		if registry.Gui and typeof(registry.Gui) == "Instance" then
+			pcall(function()
+				registry.Gui:Destroy()
+			end)
+		end
+	end
+
+	local roots = {
+		CoreGui,
+		LP and LP:FindFirstChild("PlayerGui")
+	}
+
+	local knownNames = {
+		"LucidUI",
+		"LucidUI_V3",
+		"LucidUI_V4",
+		"LucidUI_V5",
+		"LucidUI_V6",
+		"Rayfield",
+		"RayfieldLibrary",
+		"Orion",
+		"OrionLib",
+		"Obsidian",
+		"ObsidianUI"
+	}
+
+	for _, root in ipairs(roots) do
+		if root then
+			for _, name in ipairs(knownNames) do
+				local gui = root:FindFirstChild(name)
+				if gui then
+					pcall(function()
+						gui:Destroy()
+					end)
+				end
+			end
+
+			for _, child in ipairs(root:GetChildren()) do
+				if child:IsA("ScreenGui") then
+					local marker = child:GetAttribute("LucidLibraryRuntime")
+					if marker == true then
+						pcall(function()
+							child:Destroy()
+						end)
+					end
+				end
+			end
+		end
+	end
+end
+
+cleanupKnownLibraries()
+
+local DEFAULT = {
+	Background = Color3.fromRGB(7,7,10),
+	Topbar = Color3.fromRGB(10,10,14),
+	Panel = Color3.fromRGB(12,12,17),
+	Card = Color3.fromRGB(17,17,23),
+	CardHover = Color3.fromRGB(22,22,30),
+	Control = Color3.fromRGB(27,27,36),
+	Border = Color3.fromRGB(38,38,49),
+	Text = Color3.fromRGB(245,245,249),
+	Muted = Color3.fromRGB(137,137,153),
+	Accent = Color3.fromRGB(116,82,255),
 	Danger = Color3.fromRGB(255,82,105),
-	Favorite = Color3.fromRGB(255,197,65)
+	Success = Color3.fromRGB(72,214,146)
 }
-LucidUI.Theme = Theme
 
-local Icons = {
-	Settings = "rbxassetid://130679451576739"
-}
-LucidUI.Icons = Icons
-
-local function new(class, props, parent)
-	local o = Instance.new(class)
-	for k,v in pairs(props or {}) do o[k] = v end
-	o.Parent = parent
-	return o
-end
-
-local function corner(o,r)
-	return new("UICorner",{CornerRadius=UDim.new(0,r or 8)},o)
-end
-
-local function stroke(o,c,t)
-	return new("UIStroke",{Color=c or Theme.Border,Thickness=1,Transparency=t or 0},o)
-end
-
-local function pad(o,l,r,t,b)
-	return new("UIPadding",{
-		PaddingLeft=UDim.new(0,l or 0),PaddingRight=UDim.new(0,r or 0),
-		PaddingTop=UDim.new(0,t or 0),PaddingBottom=UDim.new(0,b or 0)
-	},o)
-end
-
-local function tween(o,time,props)
-	local x=TweenService:Create(o,TweenInfo.new(time or .16,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),props)
-	x:Play()
+local function New(class, props, parent)
+	local x = Instance.new(class)
+	for k,v in pairs(props or {}) do x[k]=v end
+	x.Parent=parent
 	return x
 end
 
-local function label(parent,text,size,color,bold)
-	return new("TextLabel",{
-		BackgroundTransparency=1,BorderSizePixel=0,Text=text or "",
-		TextColor3=color or Theme.Text,TextSize=size or 13,
+local function Tween(x,t,p)
+	local tw=TweenService:Create(x,TweenInfo.new(t or .15,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),p)
+	tw:Play()
+	return tw
+end
+
+local function Corner(x,r)
+	return New("UICorner",{CornerRadius=UDim.new(0,r)},x)
+end
+
+local function Stroke(x,c,t)
+	return New("UIStroke",{Color=c,Thickness=t or 1},x)
+end
+
+local function Pad(x,l,r,t,b)
+	return New("UIPadding",{PaddingLeft=UDim.new(0,l),PaddingRight=UDim.new(0,r),PaddingTop=UDim.new(0,t),PaddingBottom=UDim.new(0,b)},x)
+end
+
+local function Label(parent,text,size,color,bold)
+	return New("TextLabel",{
+		BackgroundTransparency=1,
+		BorderSizePixel=0,
+		Text=text or "",
+		TextColor3=color,
+		TextSize=size or 13,
 		Font=bold and Enum.Font.GothamBold or Enum.Font.Gotham,
-		TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center
+		TextXAlignment=Enum.TextXAlignment.Left,
+		TextYAlignment=Enum.TextYAlignment.Center,
+		TextTruncate=Enum.TextTruncate.AtEnd
 	},parent)
 end
 
-local function button(parent,text,size,color,bold)
-	return new("TextButton",{
-		BackgroundTransparency=1,BorderSizePixel=0,AutoButtonColor=false,
-		Text=text or "",TextColor3=color or Theme.Text,TextSize=size or 13,
-		Font=bold and Enum.Font.GothamBold or Enum.Font.Gotham
+local function Button(parent,text,size,color,bold)
+	return New("TextButton",{
+		BackgroundTransparency=1,
+		BorderSizePixel=0,
+		AutoButtonColor=false,
+		Text=text or "",
+		TextColor3=color,
+		TextSize=size or 12,
+		Font=bold and Enum.Font.GothamBold or Enum.Font.Gotham,
+		TextTruncate=Enum.TextTruncate.AtEnd
 	},parent)
 end
 
-local function normalizeIcon(id)
-	if not id then return nil end
-	local s=tostring(id)
-	if s:find("rbxasset",1,true) then return s end
-	return "rbxassetid://"..s
-end
-
-local function image(parent,id,size)
-	return new("ImageLabel",{
-		BackgroundTransparency=1,BorderSizePixel=0,Image=normalizeIcon(id),
-		ImageColor3=Theme.Muted,Size=UDim2.fromOffset(size or 17,size or 17)
-	},parent)
-end
-
-
-local function lineIcon(parent,kind,size,color)
-	size=size or 18
-	color=color or Theme.Muted
-	local holder=new("Frame",{BackgroundTransparency=1,BorderSizePixel=0,Size=UDim2.fromOffset(size,size)},parent)
-	local function line(x,y,w,h,rotation)
-		local f=new("Frame",{
-			AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(0,x,0,y),
-			Size=UDim2.fromOffset(w,h),Rotation=rotation or 0,
-			BackgroundColor3=color,BorderSizePixel=0
-		},holder)
-		corner(f,3)
-		return f
-	end
-	if kind=="Search" then
-		local ring=new("Frame",{
-			Position=UDim2.fromOffset(2,2),Size=UDim2.fromOffset(size-7,size-7),
-			BackgroundTransparency=1,BorderSizePixel=0
-		},holder)
-		corner(ring,50)
-		local st=stroke(ring,color,0)
-		st.Thickness=2
-		line(size-4,size-4,7,2,45)
-	elseif kind=="Star" then
-		local cx,cy=size/2,size/2
-		for i=0,4 do
-			local a1=math.rad(-90+i*144)
-			local a2=math.rad(-90+(i+1)*144)
-			local r=size*.39
-			local x1=cx+math.cos(a1)*r
-			local y1=cy+math.sin(a1)*r
-			local x2=cx+math.cos(a2)*r
-			local y2=cy+math.sin(a2)*r
-			local dx,dy=x2-x1,y2-y1
-			local len=math.sqrt(dx*dx+dy*dy)
-			local seg=line((x1+x2)/2,(y1+y2)/2,len,1.6,math.deg(math.atan2(dy,dx)))
-			seg.Name="Segment"
-		end
-	elseif kind=="Close" then
-		line(size/2,size/2,size*.62,2,45)
-		line(size/2,size/2,size*.62,2,-45)
-	elseif kind=="Minus" then
-		line(size/2,size/2,size*.62,2,0)
-	end
-	holder:SetAttribute("LucidLineIcon",true)
-	return holder
-end
-
-local function setLineIconColor(holder,newColor)
-	if not holder then return end
-	for _,d in ipairs(holder:GetDescendants()) do
-		if d:IsA("Frame") and d~=holder and d.BackgroundTransparency<1 then
-			d.BackgroundColor3=newColor
-		elseif d:IsA("UIStroke") then
-			d.Color=newColor
-		end
-	end
-end
-
-local function safeParent(gui)
+local function SafeParent(gui)
 	local ok=pcall(function() gui.Parent=CoreGui end)
-	if not ok then gui.Parent=Players.LocalPlayer:WaitForChild("PlayerGui") end
-end
-
-local function drag(handle,target)
-	local active=false
-	local startMouse,startPos
-	handle.InputBegan:Connect(function(i)
-		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-			active=true startMouse=i.Position startPos=target.Position
-		end
-	end)
-	UserInputService.InputChanged:Connect(function(i)
-		if active and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-			local d=i.Position-startMouse
-			target.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(i)
-		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then active=false end
-	end)
+	if not ok then gui.Parent=LP:WaitForChild("PlayerGui") end
 end
 
 local Window={}
@@ -182,397 +154,352 @@ Section.__index=Section
 function LucidUI:CreateWindow(o)
 	o=o or {}
 	local self=setmetatable({},Window)
-	self.Title=o.Title or "LucidUI"
-	self.Subtitle=o.Subtitle or "dark interface"
-	self.Size=o.Size or UDim2.fromOffset(840,520)
-	self.Tabs={}
-	self.Components={}
-	self.FavoriteMode=false
+	self.Options=o
+	self.Title=o.Title or "Lucid"
+	self.Subtitle=o.Subtitle or "Interface"
+	self.Size=o.Size or UDim2.fromOffset(860,540)
+	self.FirstP=o.FirstP==true
+	self.ToggleKey=o.ToggleKey or Enum.KeyCode.Tab
 	self.Visible=true
+	self.Tabs={}
 	self.CurrentTab=nil
-	self.FavoritesTab=nil
+	self.Connections={}
+	self.Flags={}
+	self.Theme={}
+	for k,v in pairs(DEFAULT) do self.Theme[k]=v end
 
-	local old=CoreGui:FindFirstChild("LucidUI_V3")
-	if old then old:Destroy() end
+	local style=o.Style or {}
+	self.Shape=style.Shape or "Rounded"
+	self.Neon=style.Neon==true
+	if style.Accent then self.Theme.Accent=style.Accent end
+	self.Radius=self.Shape=="Square" and 0 or self.Shape=="Soft" and 7 or 13
 
-	local gui=new("ScreenGui",{Name="LucidUI_V3",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling})
-	safeParent(gui)
-	self.Gui=gui
-
-	local shadow=new("Frame",{
-		AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),
-		Size=self.Size,BackgroundTransparency=1,BorderSizePixel=0,Visible=false
-	},gui)
-
-	local main=new("Frame",{
-		AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=self.Size,
-		BackgroundColor3=Theme.Background,BorderSizePixel=0,ClipsDescendants=true
-	},gui)
-	corner(main,14)
-	stroke(main,Theme.Border,.05)
-
-	self.Main=main
-	self.Shadow=shadow
-
-	local top=new("Frame",{Size=UDim2.new(1,0,0,64),BackgroundColor3=Theme.Topbar,BorderSizePixel=0},main)
-	self.Topbar=top
-
-	local title=label(top,self.Title,17,Theme.Text,true)
-	title.Position=UDim2.fromOffset(18,8)
-	title.Size=UDim2.new(0,170,0,23)
-	title.TextTruncate=Enum.TextTruncate.AtEnd
-
-	local subtitle=label(top,self.Subtitle,10,Theme.Muted,false)
-	subtitle.Position=UDim2.fromOffset(18,31)
-	subtitle.Size=UDim2.new(0,170,0,18)
-	subtitle.TextTruncate=Enum.TextTruncate.AtEnd
-
-	local controls=new("Frame",{
-		AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-12,.5,0),
-		Size=UDim2.fromOffset(122,34),BackgroundTransparency=1
-	},top)
-	local cl=new("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,7)},controls)
-
-	local fav=new("TextButton",{
-		LayoutOrder=1,Size=UDim2.fromOffset(34,34),BackgroundColor3=Theme.Surface2,
-		BorderSizePixel=0,AutoButtonColor=false,Text=""
-	},controls)
-	corner(fav,8)
-	local favGlyph=lineIcon(fav,"Star",17,Theme.Muted)
-	favGlyph.AnchorPoint=Vector2.new(.5,.5)
-	favGlyph.Position=UDim2.fromScale(.5,.5)
-
-	local mini=button(controls,"—",18,Theme.Muted,true)
-	mini.LayoutOrder=2 mini.Size=UDim2.fromOffset(34,34) mini.BackgroundTransparency=0 mini.BackgroundColor3=Theme.Surface2 corner(mini,8)
-
-	local close=button(controls,"×",19,Theme.Muted,true)
-	close.LayoutOrder=3 close.Size=UDim2.fromOffset(34,34) close.BackgroundTransparency=0 close.BackgroundColor3=Theme.Surface2 corner(close,8)
-
-	local tabbar=new("Frame",{
-		Position=UDim2.fromOffset(205,0),Size=UDim2.new(1,-350,1,0),
-		BackgroundTransparency=1,ClipsDescendants=true
-	},top)
-
-	local tabs=new("ScrollingFrame",{
-		Size=UDim2.new(1,-46,1,0),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=0,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.X
-	},tabbar)
-	local tabLayout=new("UIListLayout",{
-		FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,
-		Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder
-	},tabs)
-	tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		tabs.CanvasSize=UDim2.fromOffset(tabLayout.AbsoluteContentSize.X+10,0)
-	end)
-
-	local searchButton=new("TextButton",{
-		AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,0,.5,0),
-		Size=UDim2.fromOffset(36,36),BackgroundColor3=Theme.Surface2,BorderSizePixel=0,
-		AutoButtonColor=false,Text=""
-	},tabbar)
-	corner(searchButton,9)
-	local searchGlyph=lineIcon(searchButton,"Search",17,Theme.Muted)
-	searchGlyph.AnchorPoint=Vector2.new(.5,.5)
-	searchGlyph.Position=UDim2.fromScale(.5,.5)
-
-	local body=new("Frame",{Position=UDim2.fromOffset(0,64),Size=UDim2.new(1,0,1,-64),BackgroundTransparency=1},main)
-
-	local pageHolder=new("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},body)
-	self.Content=pageHolder
-	self.TabBar=tabs
-
-	local searchOverlay=new("Frame",{
-		Visible=false,Position=UDim2.fromOffset(14,12),Size=UDim2.new(1,-28,1,-24),
-		BackgroundColor3=Theme.Surface,BorderSizePixel=0,ZIndex=100
-	},body)
-	corner(searchOverlay,12)
-	stroke(searchOverlay,Theme.Border,.05)
-
-	local search=new("TextBox",{
-		Position=UDim2.fromOffset(14,14),Size=UDim2.new(1,-28,0,42),
-		BackgroundColor3=Theme.Surface2,BorderSizePixel=0,Text="",
-		PlaceholderText="Search tabs, sections and options...",PlaceholderColor3=Theme.Muted,
-		TextColor3=Theme.Text,TextSize=13,Font=Enum.Font.Gotham,ClearTextOnFocus=false,
-		TextXAlignment=Enum.TextXAlignment.Left,ZIndex=101
-	},searchOverlay)
-	corner(search,9)
-	pad(search,13,13,0,0)
-
-	local results=new("ScrollingFrame",{
-		Position=UDim2.fromOffset(14,66),Size=UDim2.new(1,-28,1,-80),
-		BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,
-		ScrollBarImageColor3=Theme.Border,CanvasSize=UDim2.new(),ZIndex=101
-	},searchOverlay)
-	local rl=new("UIListLayout",{Padding=UDim.new(0,7),SortOrder=Enum.SortOrder.LayoutOrder},results)
-	rl:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		results.CanvasSize=UDim2.fromOffset(0,rl.AbsoluteContentSize.Y+10)
-	end)
-
-	self.SearchOverlay=searchOverlay
-	self.SearchBox=search
-	self.SearchResults=results
-	self.FavoriteButton=fav
-
-	local function setVisible(state)
-		self.Visible=state
-		main.Visible=state
-		shadow.Visible=false
-		if self.FirstP then
-			if state then
-				if self._MouseBehaviorBeforeLucid==nil then
-					self._MouseBehaviorBeforeLucid=UserInputService.MouseBehavior
-					self._MouseIconBeforeLucid=UserInputService.MouseIconEnabled
-				end
-				UserInputService.MouseBehavior=Enum.MouseBehavior.Default
-				UserInputService.MouseIconEnabled=true
-			elseif self._MouseBehaviorBeforeLucid~=nil then
-				UserInputService.MouseBehavior=self._MouseBehaviorBeforeLucid
-				UserInputService.MouseIconEnabled=self._MouseIconBeforeLucid~=false
-				self._MouseBehaviorBeforeLucid=nil
-				self._MouseIconBeforeLucid=nil
-			end
-		end
-		if state then
-			main.Size=self.Size-UDim2.fromOffset(24,24)
-			main.BackgroundTransparency=.08
-			tween(main,.18,{Size=self.Size,BackgroundTransparency=0})
+	for _,root in ipairs({CoreGui,LP:FindFirstChild("PlayerGui")}) do
+		if root then
+			local old=root:FindFirstChild("LucidUI_V5")
+			if old then old:Destroy() end
 		end
 	end
-	self.SetVisible=setVisible
 
-	close.MouseButton1Click:Connect(function() setVisible(false) end)
+	local gui=New("ScreenGui",{Name="LucidUI_V6",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,IgnoreGuiInset=false},nil)
+	SafeParent(gui)
+	self.Gui=gui
+	gui:SetAttribute("LucidLibraryRuntime", true)
+	gui:SetAttribute("LucidLibraryName", "LucidUI")
+	gui:SetAttribute("LucidLibraryVersion", LucidUI.Version)
 
+	GLOBAL_ENV[REGISTRY_KEY] = {
+		Gui = gui,
+		Destroy = function()
+			if gui and gui.Parent then
+				gui:Destroy()
+			end
+		end
+	}
+
+	local main=New("Frame",{
+		AnchorPoint=Vector2.new(.5,.5),
+		Position=UDim2.fromScale(.5,.5),
+		Size=self.Size,
+		BackgroundColor3=self.Theme.Background,
+		BorderSizePixel=0,
+		ClipsDescendants=true
+	},gui)
+	Corner(main,self.Radius)
+	local mainStroke=Stroke(main,self.Neon and self.Theme.Accent or self.Theme.Border,self.Neon and 2 or 1)
+	self.Main=main
+	self.MainStroke=mainStroke
+
+	local bg=New("ImageLabel",{
+		Name="BackgroundImage",
+		Size=UDim2.fromScale(1,1),
+		BackgroundTransparency=1,
+		Image="",
+		ImageTransparency=1,
+		ScaleType=Enum.ScaleType.Crop,
+		ZIndex=0
+	},main)
+	self.BackgroundImage=bg
+
+	local tint=New("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=self.Theme.Background,BackgroundTransparency=.08,BorderSizePixel=0,ZIndex=1},main)
+	self.Tint=tint
+
+	local top=New("Frame",{Size=UDim2.new(1,0,0,68),BackgroundColor3=self.Theme.Topbar,BorderSizePixel=0,ZIndex=5},main)
+	self.Topbar=top
+
+	local title=Label(top,self.Title,17,self.Theme.Text,true)
+	title.Position=UDim2.fromOffset(18,9)
+	title.Size=UDim2.fromOffset(175,23)
+	title.ZIndex=6
+	local subtitle=Label(top,self.Subtitle,10,self.Theme.Muted,false)
+	subtitle.Position=UDim2.fromOffset(18,33)
+	subtitle.Size=UDim2.fromOffset(175,18)
+	subtitle.ZIndex=6
+
+	local tabs=New("ScrollingFrame",{
+		Position=UDim2.fromOffset(205,0),
+		Size=UDim2.new(1,-335,1,0),
+		BackgroundTransparency=1,
+		BorderSizePixel=0,
+		ScrollBarThickness=0,
+		CanvasSize=UDim2.new(),
+		ScrollingDirection=Enum.ScrollingDirection.X,
+		ZIndex=6
+	},top)
+	local tabLayout=New("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,Padding=UDim.new(0,6)},tabs)
+	tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		tabs.CanvasSize=UDim2.fromOffset(tabLayout.AbsoluteContentSize.X+8,0)
+	end)
+	self.TabBar=tabs
+
+	local controls=New("Frame",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-12,.5,0),Size=UDim2.fromOffset(108,34),BackgroundTransparency=1,ZIndex=7},top)
+	New("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,7)},controls)
+	local mini=Button(controls,"—",17,self.Theme.Muted,true)
+	mini.Size=UDim2.fromOffset(34,34) mini.BackgroundTransparency=0 mini.BackgroundColor3=self.Theme.Card Corner(mini,8)
+	local close=Button(controls,"×",19,self.Theme.Muted,true)
+	close.Size=UDim2.fromOffset(34,34) close.BackgroundTransparency=0 close.BackgroundColor3=self.Theme.Card Corner(close,8)
+
+	local body=New("Frame",{Position=UDim2.fromOffset(0,68),Size=UDim2.new(1,0,1,-68),BackgroundTransparency=1,ZIndex=2},main)
+	self.Content=body
+
+	local dragging=false
+	local dragStart,startPos
+	table.insert(self.Connections,top.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true dragStart=i.Position startPos=main.Position end
+	end))
+	table.insert(self.Connections,UIS.InputChanged:Connect(function(i)
+		if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then
+			local d=i.Position-dragStart
+			main.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)
+		end
+	end))
+	table.insert(self.Connections,UIS.InputEnded:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
+	end))
+
+	function self:SetVisible(v)
+		self.Visible=v
+		main.Visible=v
+		if v and self.FirstP then
+			UIS.MouseIconEnabled=true
+		end
+	end
+
+	function self:Toggle()
+		self:SetVisible(not self.Visible)
+	end
+
+	close.MouseButton1Click:Connect(function() self:SetVisible(false) end)
 	mini.MouseButton1Click:Connect(function()
-		if main.Size.Y.Offset<=66 then
-			tween(main,.2,{Size=self.Size})
-		else
-			tween(main,.2,{Size=UDim2.fromOffset(self.Size.X.Offset,64)})
-		end
+		if main.Size.Y.Offset<=70 then Tween(main,.18,{Size=self.Size}) else Tween(main,.18,{Size=UDim2.fromOffset(self.Size.X.Offset,68)}) end
 	end)
 
-	UserInputService.InputBegan:Connect(function(i,processed)
+	table.insert(self.Connections,UIS.InputBegan:Connect(function(i,processed)
+		if i.UserInputType==Enum.UserInputType.Keyboard and i.KeyCode==self.ToggleKey then
+			self:Toggle()
+			return
+		end
 		if processed then return end
-		if i.KeyCode==Enum.KeyCode.Tab then setVisible(not self.Visible) end
-	end)
-
-	fav.MouseButton1Click:Connect(function()
-		self.FavoriteMode=not self.FavoriteMode
-		tween(fav,.14,{
-			BackgroundColor3=self.FavoriteMode and Color3.fromRGB(40,31,12) or Theme.Surface2
-		})
-		setLineIconColor(favGlyph,self.FavoriteMode and Theme.Favorite or Theme.Muted)
-		for _,c in ipairs(self.Components) do
-			if c.Star then c.Star.Visible=self.FavoriteMode end
+		for _,tab in ipairs(self.Tabs) do
+			for _,sec in ipairs(tab.Sections) do
+				for _,comp in ipairs(sec.Components) do
+					if comp.Type=="Toggle" and comp.Bind and i.KeyCode==comp.Bind and not comp.Binding then
+						comp:Set(not comp:Get(),true)
+					end
+				end
+			end
 		end
-		if not self.FavoriteMode then self:_BuildFavorites() end
-	end)
+	end))
 
-	searchButton.MouseButton1Click:Connect(function()
-		searchOverlay.Visible=not searchOverlay.Visible
-		if searchOverlay.Visible then
-			search:CaptureFocus()
-			self:_Search(search.Text)
-		end
-	end)
-
-	search.FocusLost:Connect(function(enter)
-		if enter and search.Text=="" then searchOverlay.Visible=false end
-	end)
-
-	search:GetPropertyChangedSignal("Text"):Connect(function() self:_Search(search.Text) end)
-
-	drag(top,main)
-
-	game:GetService("RunService").RenderStepped:Connect(function()
-		if not gui.Parent then return end
-		shadow.Position=main.Position
-		shadow.Size=main.Size+UDim2.fromOffset(26,26)
-		shadow.Visible=main.Visible
-	end)
+	if style.Background then
+		local b=style.Background
+		if type(b)=="string" then self:SetBackground(b,0.25)
+		elseif type(b)=="table" and b.Enabled~=false then self:SetBackground(b.Image or b.Url,b.Transparency or .25) end
+	end
 
 	return self
 end
 
-function Window:AddTab(o,iconId)
-	if type(o)=="string" then o={Name=o,Icon=iconId} end
-	o=o or {}
-	local t=setmetatable({},Tab)
-	t.Window=self
-	t.Name=o.Name or "Tab"
-	t.Icon=o.Icon
-	t.Sections={}
-	t.Internal=o.Internal==true
-
-	local b=button(self.TabBar,"",12,Theme.Muted,true)
-	b.Size=UDim2.fromOffset(o.Icon and 112 or 92,36)
-	b.BackgroundTransparency=1
-	b.BackgroundColor3=Theme.Surface2
-	corner(b,9)
-
-	local ico
-	if o.Icon then
-		ico=image(b,o.Icon,15)
-		ico.Position=UDim2.new(0,10,.5,-7)
+function Window:SetBackground(source,transparency)
+	if not source or source=="" then
+		self.BackgroundImage.Image=""
+		self.BackgroundImage.ImageTransparency=1
+		return false
 	end
+	local image=source
+	if tostring(source):match("^https?://") then
+		if getcustomasset and writefile and game.HttpGet then
+			local ext=tostring(source):match("%.([%w]+)[%?]?") or "png"
+			local path="LucidUI_Background."..ext
+			local ok,data=pcall(function() return game:HttpGet(source) end)
+			if ok then
+				local ok2=pcall(function() writefile(path,data) end)
+				if ok2 then
+					local ok3,asset=pcall(function() return getcustomasset(path) end)
+					if ok3 then image=asset else return false end
+				else return false end
+			else return false end
+		else
+			return false
+		end
+	elseif not tostring(source):find("rbxasset",1,true) then
+		image="rbxassetid://"..tostring(source)
+	end
+	self.BackgroundImage.Image=image
+	self.BackgroundImage.ImageTransparency=math.clamp(transparency or .25,0,1)
+	return true
+end
 
-	local tx=label(b,t.Name,12,Theme.Muted,true)
-	tx.Position=UDim2.fromOffset(o.Icon and 32 or 10,0)
-	tx.Size=UDim2.new(1,-(o.Icon and 40 or 20),1,0)
-	tx.TextXAlignment=Enum.TextXAlignment.Center
+function Window:SetAccent(color)
+	self.Theme.Accent=color
+	if self.Neon then self.MainStroke.Color=color end
+	for _,tab in ipairs(self.Tabs) do
+		if tab==self.CurrentTab then tab.Indicator.BackgroundColor3=color end
+		for _,sec in ipairs(tab.Sections) do
+			for _,c in ipairs(sec.Components) do
+				if c.RefreshTheme then c:RefreshTheme() end
+			end
+		end
+	end
+end
 
-	local indicator=new("Frame",{
-		AnchorPoint=Vector2.new(.5,1),Position=UDim2.new(.5,0,1,0),
-		Size=UDim2.new(0,0,0,2),BackgroundColor3=Theme.Accent,BorderSizePixel=0
-	},b)
-	corner(indicator,4)
+function Window:SetNeon(v)
+	self.Neon=v==true
+	self.MainStroke.Color=self.Neon and self.Theme.Accent or self.Theme.Border
+	self.MainStroke.Thickness=self.Neon and 2 or 1
+end
 
-	local page=new("ScrollingFrame",{
-		Visible=false,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Theme.Border,CanvasSize=UDim2.new()
-	},self.Content)
-	pad(page,18,18,18,18)
-	local layout=new("UIListLayout",{Padding=UDim.new(0,12),SortOrder=Enum.SortOrder.LayoutOrder},page)
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		page.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+36)
-	end)
+function Window:SetShape(shape)
+	self.Shape=shape
+	self.Radius=shape=="Square" and 0 or shape=="Soft" and 7 or 13
+	local c=self.Main:FindFirstChildOfClass("UICorner")
+	if c then c.CornerRadius=UDim.new(0,self.Radius) end
+end
 
-	t.Button=b t.Label=tx t.IconObject=ico t.Indicator=indicator t.Page=page
+function Window:AddTab(o)
+	if type(o)=="string" then o={Name=o} end
+	o=o or {}
+	local t=setmetatable({Window=self,Name=o.Name or "Tab",Sections={}},Tab)
+	local b=Button(self.TabBar,t.Name,12,self.Theme.Muted,true)
+	b.Size=UDim2.fromOffset(math.max(88,math.min(150,34+#t.Name*7)),36)
+	b.BackgroundTransparency=1
+	b.BackgroundColor3=self.Theme.Card
+	Corner(b,8)
+	local ind=New("Frame",{AnchorPoint=Vector2.new(.5,1),Position=UDim2.new(.5,0,1,0),Size=UDim2.new(0,0,0,2),BackgroundColor3=self.Theme.Accent,BorderSizePixel=0},b)
+	Corner(ind,2)
+	local page=New("ScrollingFrame",{Visible=false,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=self.Theme.Border,CanvasSize=UDim2.new()},self.Content)
+	Pad(page,18,18,18,18)
+	local layout=New("UIListLayout",{Padding=UDim.new(0,12),SortOrder=Enum.SortOrder.LayoutOrder},page)
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+36) end)
+	t.Button=b t.Indicator=ind t.Page=page
 	table.insert(self.Tabs,t)
-
 	b.MouseButton1Click:Connect(function() self:SelectTab(t) end)
-	b.MouseEnter:Connect(function()
-		if self.CurrentTab~=t then tween(b,.12,{BackgroundTransparency=.35}) end
-	end)
-	b.MouseLeave:Connect(function()
-		if self.CurrentTab~=t then tween(b,.12,{BackgroundTransparency=1}) end
-	end)
-
-	if not self.CurrentTab and not t.Internal then self:SelectTab(t) end
+	if not self.CurrentTab then self:SelectTab(t) end
 	return t
 end
 
 function Window:SelectTab(tab)
-	self.SearchOverlay.Visible=false
 	for _,t in ipairs(self.Tabs) do
-		local active=t==tab
-		t.Page.Visible=active
-		tween(t.Button,.14,{BackgroundTransparency=active and 0 or 1,BackgroundColor3=Theme.Surface2})
-		tween(t.Label,.14,{TextColor3=active and Theme.Text or Theme.Muted})
-		tween(t.Indicator,.14,{Size=active and UDim2.new(.65,0,0,2) or UDim2.new(0,0,0,2)})
-		if t.IconObject then tween(t.IconObject,.14,{ImageColor3=active and Theme.Accent or Theme.Muted}) end
+		local on=t==tab
+		t.Page.Visible=on
+		Tween(t.Button,.12,{BackgroundTransparency=on and 0 or 1,TextColor3=on and self.Theme.Text or self.Theme.Muted})
+		Tween(t.Indicator,.12,{Size=on and UDim2.new(.55,0,0,2) or UDim2.new(0,0,0,2)})
 	end
 	self.CurrentTab=tab
 end
 
 function Tab:AddSection(name)
-	local s=setmetatable({},Section)
-	s.Window=self.Window
-	s.Tab=self
-	s.Name=name or "Section"
-
-	local frame=new("Frame",{
-		Size=UDim2.new(1,0,0,54),AutomaticSize=Enum.AutomaticSize.Y,
-		BackgroundColor3=Theme.Surface,BorderSizePixel=0
-	},self.Page)
-	corner(frame,11)
-	stroke(frame,Theme.Border,.2)
-	pad(frame,12,12,10,12)
-
-	local title=label(frame,s.Name,11,Theme.Muted,true)
-	title.Size=UDim2.new(1,0,0,22)
-
-	local content=new("Frame",{
-		Position=UDim2.fromOffset(0,30),Size=UDim2.new(1,0,0,0),
-		AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1
-	},frame)
-	new("UIListLayout",{Padding=UDim.new(0,7),SortOrder=Enum.SortOrder.LayoutOrder},content)
-
-	s.Frame=frame s.Content=content
+	local s=setmetatable({Window=self.Window,Tab=self,Name=name or "Section",Components={}},Section)
+	local frame=New("Frame",{Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=self.Window.Theme.Panel,BorderSizePixel=0},self.Page)
+	Corner(frame,10) Stroke(frame,self.Window.Theme.Border,1) Pad(frame,12,12,12,12)
+	local layout=New("UIListLayout",{Padding=UDim.new(0,9),SortOrder=Enum.SortOrder.LayoutOrder},frame)
+	local title=Label(frame,s.Name,11,self.Window.Theme.Muted,true)
+	title.Size=UDim2.new(1,0,0,24)
+	s.Frame=frame
 	table.insert(self.Sections,s)
 	return s
 end
 
-function Section:_Card(name,description,height)
-	local card=new("Frame",{
-		Size=UDim2.new(1,0,0,height or 48),BackgroundColor3=Theme.Surface2,BorderSizePixel=0
-	},self.Content)
-	corner(card,9)
-	stroke(card,Theme.Border,.45)
-
-	local title=label(card,name,13,Theme.Text,true)
-	title.Position=UDim2.fromOffset(12,description and 5 or 0)
-	title.Size=UDim2.new(1,-250,description and 0 or 1,description and 20 or 0)
-	title.TextTruncate=Enum.TextTruncate.AtEnd
-
-	if description then
-		local d=label(card,description,10,Theme.Muted,false)
-		d.Position=UDim2.fromOffset(12,26)
-		d.Size=UDim2.new(1,-250,0,16)
-		d.TextTruncate=Enum.TextTruncate.AtEnd
+function Section:_Base(o,height)
+	o=o or {}
+	local w=self.Window
+	local card=New("Frame",{Size=UDim2.new(1,0,0,height or 58),BackgroundColor3=w.Theme.Card,BorderSizePixel=0},self.Frame)
+	Corner(card,8)
+	local textArea=New("Frame",{Position=UDim2.fromOffset(13,0),Size=UDim2.new(1,-190,1,0),BackgroundTransparency=1},card)
+	local title=Label(textArea,o.Name or "Option",13,w.Theme.Text,true)
+	if o.Description then
+		title.Position=UDim2.fromOffset(0,7) title.Size=UDim2.new(1,0,0,20)
+		local desc=Label(textArea,o.Description,10,w.Theme.Muted,false)
+		desc.Position=UDim2.fromOffset(0,28) desc.Size=UDim2.new(1,0,0,16)
+	else
+		title.Size=UDim2.fromScale(1,1)
 	end
-
-	local star=new("TextButton",{
-		Visible=self.Window.FavoriteMode,AnchorPoint=Vector2.new(1,.5),
-		Position=UDim2.new(1,-9,.5,0),Size=UDim2.fromOffset(24,24),
-		BackgroundTransparency=1,BorderSizePixel=0,AutoButtonColor=false,
-		Text="",ZIndex=10
-	},card)
-	local starGlyph=lineIcon(star,"Star",15,Theme.Muted)
-	starGlyph.AnchorPoint=Vector2.new(.5,.5)
-	starGlyph.Position=UDim2.fromScale(.5,.5)
-	starGlyph.ZIndex=11
-
-	local component={
-		Name=name,Description=description or "",Tab=self.Tab,Section=self,
-		Card=card,Star=star,Favorited=false
-	}
-	table.insert(self.Window.Components,component)
-
-	star.MouseButton1Click:Connect(function()
-		component.Favorited=not component.Favorited
-		setLineIconColor(starGlyph,component.Favorited and Theme.Favorite or Theme.Muted)
-		self.Window:_BuildFavorites()
-	end)
-
-	return card,component
+	local controls=New("Frame",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-12,.5,0),Size=UDim2.fromOffset(160,height or 58),BackgroundTransparency=1},card)
+	local c={Window=w,Section=self,Card=card,Controls=controls,Name=o.Name or "Option"}
+	table.insert(self.Components,c)
+	return card,controls,c
 end
 
 function Section:AddButton(o)
 	if type(o)=="string" then o={Name=o} end
 	o=o or {}
-	local card,c=self:_Card(o.Name or "Button",o.Description,o.Description and 56 or 48)
-	local run=button(card,o.ActionText or "Run",11,Theme.Text,true)
-	run.AnchorPoint=Vector2.new(1,.5) run.Position=UDim2.new(1,-42,.5,0)
-	run.Size=UDim2.fromOffset(64,28) run.BackgroundTransparency=0 run.BackgroundColor3=Theme.Surface3 corner(run,7)
-	run.MouseEnter:Connect(function() tween(run,.1,{BackgroundColor3=Theme.Accent}) end)
-	run.MouseLeave:Connect(function() tween(run,.1,{BackgroundColor3=Theme.Surface3}) end)
-	run.MouseButton1Click:Connect(function() task.spawn(o.Callback or function() end) end)
+	local _,controls,c=self:_Base(o,o.Description and 62 or 54)
+	c.Type="Button"
+	local b=Button(controls,o.ActionText or "Run",11,self.Window.Theme.Text,true)
+	b.AnchorPoint=Vector2.new(1,.5) b.Position=UDim2.new(1,0,.5,0) b.Size=UDim2.fromOffset(72,30)
+	b.BackgroundTransparency=0 b.BackgroundColor3=self.Window.Theme.Control Corner(b,7)
+	b.MouseButton1Click:Connect(function() task.spawn(o.Callback or function() end) end)
 	c.Fire=function() task.spawn(o.Callback or function() end) end
 	return c
 end
 
 function Section:AddToggle(o)
 	o=o or {}
-	local value=o.Default==true
-	local card,c=self:_Card(o.Name or "Toggle",o.Description,o.Description and 56 or 48)
-	local track=button(card,"",1,Theme.Text,false)
-	track.AnchorPoint=Vector2.new(1,.5) track.Position=UDim2.new(1,-42,.5,0)
-	track.Size=UDim2.fromOffset(42,24) track.BackgroundTransparency=0
-	track.BackgroundColor3=value and Theme.Accent or Theme.Surface3 corner(track,20)
-	local knob=new("Frame",{
-		AnchorPoint=Vector2.new(0,.5),Position=value and UDim2.new(0,20,.5,0) or UDim2.new(0,3,.5,0),
-		Size=UDim2.fromOffset(18,18),BackgroundColor3=Theme.Text,BorderSizePixel=0
-	},track)
-	corner(knob,20)
-	local function set(v,fire)
-		value=not not v
-		tween(track,.14,{BackgroundColor3=value and Theme.Accent or Theme.Surface3})
-		tween(knob,.14,{Position=value and UDim2.new(0,20,.5,0) or UDim2.new(0,3,.5,0)})
-		if fire then task.spawn(o.Callback or function() end,value) end
+	local _,controls,c=self:_Base(o,o.Description and 64 or 56)
+	c.Type="Toggle"
+	c.Value=o.Default==true
+	c.Bind=o.Bind
+	c.Binding=false
+
+	local row=New("Frame",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,0,.5,0),Size=UDim2.fromOffset(126,32),BackgroundTransparency=1},controls)
+	local bind=Button(row,c.Bind and c.Bind.Name or "+",11,self.Window.Theme.Muted,true)
+	bind.Position=UDim2.fromOffset(0,0) bind.Size=UDim2.fromOffset(48,32)
+	bind.BackgroundTransparency=0 bind.BackgroundColor3=self.Window.Theme.Control Corner(bind,7)
+	local track=Button(row,"",1,self.Window.Theme.Text,false)
+	track.Position=UDim2.fromOffset(62,4) track.Size=UDim2.fromOffset(44,24)
+	track.BackgroundTransparency=0 Corner(track,20)
+	local knob=New("Frame",{AnchorPoint=Vector2.new(0,.5),Size=UDim2.fromOffset(18,18),BackgroundColor3=self.Window.Theme.Text,BorderSizePixel=0},track)
+	Corner(knob,20)
+
+	function c:RefreshTheme()
+		track.BackgroundColor3=self.Value and self.Window.Theme.Accent or self.Window.Theme.Control
 	end
-	track.MouseButton1Click:Connect(function() set(not value,true) end)
-	c.Set=function(_,v) set(v,true) end
-	c.Get=function() return value end
+	function c:Set(v,fire)
+		self.Value=v==true
+		Tween(track,.12,{BackgroundColor3=self.Value and self.Window.Theme.Accent or self.Window.Theme.Control})
+		Tween(knob,.12,{Position=self.Value and UDim2.new(0,23,.5,0) or UDim2.new(0,3,.5,0)})
+		if o.Flag then self.Window.Flags[o.Flag]=self.Value end
+		if fire then task.spawn(o.Callback or function() end,self.Value) end
+	end
+	function c:Get() return self.Value end
+	function c:SetBind(key)
+		self.Bind=key
+		bind.Text=key and key.Name or "+"
+	end
+
+	track.MouseButton1Click:Connect(function() c:Set(not c.Value,true) end)
+	bind.MouseButton1Click:Connect(function()
+		if c.Binding then return end
+		c.Binding=true bind.Text="..."
+		local conn
+		conn=UIS.InputBegan:Connect(function(i)
+			if i.UserInputType~=Enum.UserInputType.Keyboard then return end
+			conn:Disconnect()
+			c.Binding=false
+			if i.KeyCode==Enum.KeyCode.Escape or i.KeyCode==Enum.KeyCode.Backspace then c:SetBind(nil) else c:SetBind(i.KeyCode) end
+		end)
+	end)
+	c:Set(c.Value,false)
 	return c
 end
 
@@ -580,1959 +507,5105 @@ function Section:AddSlider(o)
 	o=o or {}
 	local min,max=o.Min or 0,o.Max or 100
 	local value=math.clamp(o.Default or min,min,max)
-	local card,c=self:_Card(o.Name or "Slider",o.Description,68)
-	local val=label(card,tostring(value)..(o.Suffix or ""),11,Theme.Muted,true)
-	val.AnchorPoint=Vector2.new(1,0) val.Position=UDim2.new(1,-42,0,7) val.Size=UDim2.fromOffset(70,18) val.TextXAlignment=Enum.TextXAlignment.Right
-	local bar=new("Frame",{Position=UDim2.new(0,12,1,-18),Size=UDim2.new(1,-56,0,7),BackgroundColor3=Theme.Surface3,BorderSizePixel=0},card)
-	corner(bar,8)
-	local fill=new("Frame",{Size=UDim2.new((value-min)/(max-min),0,1,0),BackgroundColor3=Theme.Accent,BorderSizePixel=0},bar)
-	corner(fill,8)
+	local card,_,c=self:_Base(o,76)
+	c.Type="Slider"
+	local valueLabel=Label(card,"",11,self.Window.Theme.Muted,true)
+	valueLabel.AnchorPoint=Vector2.new(1,0) valueLabel.Position=UDim2.new(1,-14,0,7) valueLabel.Size=UDim2.fromOffset(70,18) valueLabel.TextXAlignment=Enum.TextXAlignment.Right
+	local bar=New("Frame",{Position=UDim2.new(0,13,1,-18),Size=UDim2.new(1,-26,0,7),BackgroundColor3=self.Window.Theme.Control,BorderSizePixel=0},card)
+	Corner(bar,7)
+	local fill=New("Frame",{Size=UDim2.fromScale(0,1),BackgroundColor3=self.Window.Theme.Accent,BorderSizePixel=0},bar) Corner(fill,7)
+	local hit=Button(bar,"",1,self.Window.Theme.Text,false) hit.Size=UDim2.new(1,0,1,12) hit.Position=UDim2.fromOffset(0,-6)
 	local dragging=false
-	local function setX(x,fire)
-		local a=math.clamp((x-bar.AbsolutePosition.X)/bar.AbsoluteSize.X,0,1)
-		local raw=min+(max-min)*a
-		local step=o.Step or 1
-		value=math.clamp(math.floor(raw/step+.5)*step,min,max)
-		fill.Size=UDim2.new((value-min)/(max-min),0,1,0)
-		val.Text=tostring(value)..(o.Suffix or "")
+	local function set(v,fire)
+		value=math.clamp(v,min,max)
+		if o.Round~=false then value=math.floor(value+.5) end
+		local a=(value-min)/(max-min)
+		valueLabel.Text=tostring(value)..(o.Suffix or "")
+		Tween(fill,.08,{Size=UDim2.fromScale(a,1)})
+		if o.Flag then self.Window.Flags[o.Flag]=value end
 		if fire then task.spawn(o.Callback or function() end,value) end
 	end
-	bar.InputBegan:Connect(function(i)
-		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true setX(i.Position.X,true) end
-	end)
-	UserInputService.InputChanged:Connect(function(i)
-		if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then setX(i.Position.X,true) end
-	end)
-	UserInputService.InputEnded:Connect(function(i)
-		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end
-	end)
-	c.Get=function() return value end
-	c.Set=function(_,v)
-		value=math.clamp(v,min,max) fill.Size=UDim2.new((value-min)/(max-min),0,1,0)
-		val.Text=tostring(value)..(o.Suffix or "") task.spawn(o.Callback or function() end,value)
+	local function mouse()
+		local a=math.clamp((UIS:GetMouseLocation().X-bar.AbsolutePosition.X)/bar.AbsoluteSize.X,0,1)
+		set(min+(max-min)*a,true)
 	end
+	hit.MouseButton1Down:Connect(function() dragging=true mouse() end)
+	UIS.InputChanged:Connect(function(i) if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then mouse() end end)
+	UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
+	c.Set=function(_,v) set(v,true) end c.Get=function() return value end
+	c.RefreshTheme=function() fill.BackgroundColor3=self.Window.Theme.Accent end
+	set(value,false)
 	return c
 end
 
 function Section:AddTextbox(o)
 	o=o or {}
-	local card,c=self:_Card(o.Name or "Textbox",o.Description,52)
-	local box=new("TextBox",{
-		AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-42,.5,0),
-		Size=UDim2.fromOffset(180,30),BackgroundColor3=Theme.Surface3,BorderSizePixel=0,
-		Text=o.Default or "",PlaceholderText=o.Placeholder or "Type...",
-		PlaceholderColor3=Theme.Muted,TextColor3=Theme.Text,TextSize=11,
-		Font=Enum.Font.Gotham,ClearTextOnFocus=false,TextXAlignment=Enum.TextXAlignment.Left
-	},card)
-	corner(box,7) pad(box,9,9,0,0)
-	box.FocusLost:Connect(function(enter)
-		if not o.EnterOnly or enter then task.spawn(o.Callback or function() end,box.Text,enter) end
-	end)
-	c.Get=function() return box.Text end
-	c.Set=function(_,v) box.Text=tostring(v) end
+	local _,controls,c=self:_Base(o,o.Description and 64 or 56)
+	c.Type="Textbox"
+	local box=New("TextBox",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,0,.5,0),Size=UDim2.fromOffset(145,32),BackgroundColor3=self.Window.Theme.Control,BorderSizePixel=0,Text=o.Default or "",PlaceholderText=o.Placeholder or "Type...",PlaceholderColor3=self.Window.Theme.Muted,TextColor3=self.Window.Theme.Text,TextSize=11,Font=Enum.Font.Gotham,ClearTextOnFocus=false},controls)
+	Corner(box,7) Pad(box,10,10,0,0)
+	box.FocusLost:Connect(function(enter) if o.Flag then self.Window.Flags[o.Flag]=box.Text end task.spawn(o.Callback or function() end,box.Text,enter) end)
+	c.Set=function(_,v) box.Text=tostring(v or "") end c.Get=function() return box.Text end
 	return c
 end
 
 function Section:AddDropdown(o)
 	o=o or {}
-	local values=o.Values or {}
-	local current=o.Default or values[1]
-	local card,c=self:_Card(o.Name or "Dropdown",o.Description,52)
-	local pick=button(card,current and tostring(current) or "Select",11,Theme.Text,false)
-	pick.AnchorPoint=Vector2.new(1,.5) pick.Position=UDim2.new(1,-42,.5,0)
-	pick.Size=UDim2.fromOffset(155,30) pick.BackgroundTransparency=0 pick.BackgroundColor3=Theme.Surface3 corner(pick,7)
+	local items=o.Options or o.Values or {}
+	local value=o.Default
+	local card,controls,c=self:_Base(o,o.Description and 64 or 56)
+	c.Type="Dropdown"
+	local b=Button(controls,value and tostring(value) or (o.Placeholder or "Select"),11,self.Window.Theme.Text,false)
+	b.AnchorPoint=Vector2.new(1,.5) b.Position=UDim2.new(1,0,.5,0) b.Size=UDim2.fromOffset(145,32) b.BackgroundTransparency=0 b.BackgroundColor3=self.Window.Theme.Control Corner(b,7)
 	local popup
-	local function closePop() if popup then popup:Destroy() popup=nil end end
-	pick.MouseButton1Click:Connect(function()
-		if popup then closePop() return end
-		popup=new("Frame",{
-			Position=UDim2.fromOffset(pick.AbsolutePosition.X+pick.AbsoluteSize.X-190,pick.AbsolutePosition.Y+pick.AbsoluteSize.Y+5),
-			Size=UDim2.fromOffset(190,math.min(#values*34+12,200)),
-			BackgroundColor3=Theme.Surface,BorderSizePixel=0,ZIndex=130
-		},self.Window.Gui)
-		self.Window:RegisterPopup(popup)
-		corner(popup,9) stroke(popup,Theme.Border,.05)
-		local list=new("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,CanvasSize=UDim2.fromOffset(0,#values*34+8),ZIndex=31},popup)
-		pad(list,6,6,6,6)
-		new("UIListLayout",{Padding=UDim.new(0,4)},list)
-		for _,v in ipairs(values) do
-			local b=button(list,tostring(v),11,Theme.Text,false)
-			b.Size=UDim2.new(1,0,0,30) b.BackgroundTransparency=0 b.BackgroundColor3=Theme.Surface2 b.ZIndex=32 corner(b,6)
-			b.MouseButton1Click:Connect(function()
-				current=v pick.Text=tostring(v) closePop() task.spawn(o.Callback or function() end,v)
-			end)
+	local function close() if popup then popup:Destroy() popup=nil end end
+	b.MouseButton1Click:Connect(function()
+		if popup then close() return end
+		popup=New("Frame",{Position=UDim2.fromOffset(b.AbsolutePosition.X,b.AbsolutePosition.Y+b.AbsoluteSize.Y+5),Size=UDim2.fromOffset(b.AbsoluteSize.X,math.min(180,#items*32+8)),BackgroundColor3=self.Window.Theme.Panel,BorderSizePixel=0,ZIndex=100},self.Window.Gui)
+		Corner(popup,8) Stroke(popup,self.Window.Theme.Border,1) Pad(popup,4,4,4,4)
+		New("UIListLayout",{Padding=UDim.new(0,3)},popup)
+		for _,v in ipairs(items) do
+			local it=Button(popup,tostring(v),11,self.Window.Theme.Text,false)
+			it.Size=UDim2.new(1,0,0,28) it.BackgroundTransparency=0 it.BackgroundColor3=self.Window.Theme.Card it.ZIndex=101 Corner(it,6)
+			it.MouseButton1Click:Connect(function() value=v b.Text=tostring(v) close() if o.Flag then self.Window.Flags[o.Flag]=v end task.spawn(o.Callback or function() end,v) end)
 		end
 	end)
-	c.Get=function() return current end
-	c.Set=function(_,v) current=v pick.Text=tostring(v) task.spawn(o.Callback or function() end,v) end
+	c.Set=function(_,v) value=v b.Text=tostring(v) end c.Get=function() return value end
 	return c
 end
 
-function Section:AddPlayerDropdown(o)
+function Section:AddRadioGroup(o)
 	o=o or {}
-	local selected=nil
-	local card,c=self:_Card(o.Name or "Player",o.Description,52)
-	local pick=button(card,"Select player",11,Theme.Text,false)
-	pick.AnchorPoint=Vector2.new(1,.5) pick.Position=UDim2.new(1,-42,.5,0)
-	pick.Size=UDim2.fromOffset(170,30) pick.BackgroundTransparency=0 pick.BackgroundColor3=Theme.Surface3 corner(pick,7)
-	local popup
-	local connections={}
-	local function cleanup()
-		for _,x in ipairs(connections) do x:Disconnect() end
-		table.clear(connections)
-		if popup then popup:Destroy() popup=nil end
-	end
-	pick.MouseButton1Click:Connect(function()
-		if popup then cleanup() return end
-		popup=new("Frame",{
-			Position=UDim2.fromOffset(pick.AbsolutePosition.X+pick.AbsoluteSize.X-290,pick.AbsolutePosition.Y+pick.AbsoluteSize.Y+5),
-			Size=UDim2.fromOffset(290,275),BackgroundColor3=Theme.Surface,
-			BorderSizePixel=0,ZIndex=140
-		},self.Window.Gui)
-		self.Window:RegisterPopup(popup)
-		corner(popup,10) stroke(popup,Theme.Border,.05)
-		local search=new("TextBox",{
-			Position=UDim2.fromOffset(8,8),Size=UDim2.new(1,-16,0,34),
-			BackgroundColor3=Theme.Surface2,BorderSizePixel=0,Text="",
-			PlaceholderText="Search player...",PlaceholderColor3=Theme.Muted,
-			TextColor3=Theme.Text,TextSize=11,Font=Enum.Font.Gotham,
-			ClearTextOnFocus=false,ZIndex=141
-		},popup)
-		corner(search,7) pad(search,10,10,0,0)
-		local list=new("ScrollingFrame",{
-			Position=UDim2.fromOffset(8,50),Size=UDim2.new(1,-16,1,-58),
-			BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,
-			ScrollBarImageColor3=Theme.Border,CanvasSize=UDim2.new(),ZIndex=141
-		},popup)
-		new("UIListLayout",{Padding=UDim.new(0,5)},list)
-		local function rebuild()
-			for _,x in ipairs(list:GetChildren()) do if x:IsA("TextButton") then x:Destroy() end end
-			local q=search.Text:lower()
-			local count=0
-			for _,plr in ipairs(Players:GetPlayers()) do
-				local hay=(plr.Name.." "..plr.DisplayName):lower()
-				if q=="" or hay:find(q,1,true) then
-					count+=1
-					local row=button(list,"",11,Theme.Text,false)
-					row.Size=UDim2.new(1,0,0,44) row.BackgroundTransparency=0 row.BackgroundColor3=Theme.Surface2 row.ZIndex=142 corner(row,7)
-					local avatar=new("ImageLabel",{Position=UDim2.fromOffset(5,5),Size=UDim2.fromOffset(34,34),BackgroundColor3=Theme.Surface3,BorderSizePixel=0,ZIndex=143},row)
-					corner(avatar,18)
-					task.spawn(function()
-						local ok,img=pcall(function() return Players:GetUserThumbnailAsync(plr.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size100x100) end)
-						if ok and avatar.Parent then avatar.Image=img end
-					end)
-					local dn=label(row,plr.DisplayName,11,Theme.Text,true)
-					dn.Position=UDim2.fromOffset(47,4) dn.Size=UDim2.new(1,-52,0,19) dn.ZIndex=143
-					local un=label(row,"@"..plr.Name,9,Theme.Muted,false)
-					un.Position=UDim2.fromOffset(47,22) un.Size=UDim2.new(1,-52,0,16) un.ZIndex=143
-					row.MouseButton1Click:Connect(function()
-						selected=plr pick.Text=plr.DisplayName cleanup() task.spawn(o.Callback or function() end,plr)
-					end)
-				end
-			end
-			list.CanvasSize=UDim2.fromOffset(0,count*49)
+	local opts=o.Options or {}
+	local h=44+#opts*34
+	local card=New("Frame",{Size=UDim2.new(1,0,0,h),BackgroundColor3=self.Window.Theme.Card,BorderSizePixel=0},self.Frame)
+	Corner(card,8)
+	local title=Label(card,o.Name or "Options",13,self.Window.Theme.Text,true)
+	title.Position=UDim2.fromOffset(13,8) title.Size=UDim2.new(1,-26,0,22)
+	local list=New("Frame",{Position=UDim2.fromOffset(13,38),Size=UDim2.new(1,-26,0,#opts*34),BackgroundTransparency=1},card)
+	New("UIListLayout",{Padding=UDim.new(0,2)},list)
+	local c={Type="RadioGroup",Window=self.Window,Section=self,Card=card,Value=o.Default}
+	table.insert(self.Components,c)
+	local rows={}
+	local function set(v,fire)
+		c.Value=v
+		for val,row in pairs(rows) do
+			row.Dot.BackgroundColor3=val==v and self.Window.Theme.Accent or self.Window.Theme.Control
+			row.Text.TextColor3=val==v and self.Window.Theme.Text or self.Window.Theme.Muted
 		end
-		rebuild()
-		table.insert(connections,search:GetPropertyChangedSignal("Text"):Connect(rebuild))
-		table.insert(connections,Players.PlayerAdded:Connect(rebuild))
-		table.insert(connections,Players.PlayerRemoving:Connect(function(p)
-			if selected==p then selected=nil pick.Text="Select player" end
-			rebuild()
-		end))
-	end)
-	c.Get=function() return selected end
-	c.Set=function(_,p) selected=p pick.Text=p and p.DisplayName or "Select player" if p then task.spawn(o.Callback or function() end,p) end end
+		if fire then task.spawn(o.Callback or function() end,v) end
+	end
+	for _,v in ipairs(opts) do
+		local row=Button(list,"",1,self.Window.Theme.Text,false) row.Size=UDim2.new(1,0,0,32)
+		local dot=New("Frame",{Position=UDim2.fromOffset(2,8),Size=UDim2.fromOffset(16,16),BackgroundColor3=self.Window.Theme.Control,BorderSizePixel=0},row) Corner(dot,16)
+		local tx=Label(row,tostring(v),11,self.Window.Theme.Muted,false) tx.Position=UDim2.fromOffset(28,0) tx.Size=UDim2.new(1,-28,1,0)
+		rows[v]={Dot=dot,Text=tx}
+		row.MouseButton1Click:Connect(function() set(v,true) end)
+	end
+	c.Set=function(_,v) set(v,true) end c.Get=function() return c.Value end
+	set(c.Value,false)
 	return c
 end
 
-function Window:_BuildFavorites()
-	local count=0
-	for _,c in ipairs(self.Components) do if c.Favorited then count+=1 end end
-	if count==0 then
-		if self.FavoritesTab then self.FavoritesTab.Button.Visible=false end
-		return
-	end
-	if not self.FavoritesTab then
-		self.FavoritesTab=self:AddTab({Name="Favorites",Internal=true})
-		self.FavoritesTab.Button.LayoutOrder=-100
-	end
-	self.FavoritesTab.Button.Visible=true
-	local page=self.FavoritesTab.Page
-	for _,x in ipairs(page:GetChildren()) do
-		if x:IsA("Frame") then x:Destroy() end
-	end
-	local section=self.FavoritesTab:AddSection("Quick access")
-	for _,c in ipairs(self.Components) do
-		if c.Favorited and c.Tab~=self.FavoritesTab then
-			local row=button(section.Content,"",12,Theme.Text,false)
-			row.Size=UDim2.new(1,0,0,48) row.BackgroundTransparency=0 row.BackgroundColor3=Theme.Surface2 corner(row,8) stroke(row,Theme.Border,.45)
-			local n=label(row,c.Name,12,Theme.Text,true)
-			n.Position=UDim2.fromOffset(12,4) n.Size=UDim2.new(1,-24,0,20)
-			local path=label(row,c.Tab.Name.."  ›  "..c.Section.Name,9,Theme.Muted,false)
-			path.Position=UDim2.fromOffset(12,25) path.Size=UDim2.new(1,-24,0,15)
-			row.MouseButton1Click:Connect(function()
-				self:SelectTab(c.Tab)
-				tween(c.Card,.12,{BackgroundColor3=Theme.Hover})
-				task.delay(.35,function() if c.Card.Parent then tween(c.Card,.18,{BackgroundColor3=Theme.Surface2}) end end)
-			end)
-		end
-	end
-end
-
-function Window:_Search(q)
-	q=(q or ""):lower()
-	for _,x in ipairs(self.SearchResults:GetChildren()) do if x:IsA("TextButton") then x:Destroy() end end
-	if q=="" then
-		for _,c in ipairs(self.Components) do
-			local row=button(self.SearchResults,"",12,Theme.Text,false)
-			row.Size=UDim2.new(1,0,0,48) row.BackgroundTransparency=0 row.BackgroundColor3=Theme.Surface2 row.ZIndex=102 corner(row,8)
-			local n=label(row,c.Name,12,Theme.Text,true) n.Position=UDim2.fromOffset(12,4) n.Size=UDim2.new(1,-24,0,20) n.ZIndex=103
-			local p=label(row,c.Tab.Name.."  ›  "..c.Section.Name,9,Theme.Muted,false) p.Position=UDim2.fromOffset(12,25) p.Size=UDim2.new(1,-24,0,15) p.ZIndex=103
-			row.MouseButton1Click:Connect(function() self.SearchBox.Text="" self:SelectTab(c.Tab) end)
-		end
-		return
-	end
-	for _,c in ipairs(self.Components) do
-		local hay=(c.Name.." "..c.Description.." "..c.Tab.Name.." "..c.Section.Name):lower()
-		if hay:find(q,1,true) then
-			local row=button(self.SearchResults,"",12,Theme.Text,false)
-			row.Size=UDim2.new(1,0,0,48) row.BackgroundTransparency=0 row.BackgroundColor3=Theme.Surface2 row.ZIndex=102 corner(row,8)
-			local n=label(row,c.Name,12,Theme.Text,true) n.Position=UDim2.fromOffset(12,4) n.Size=UDim2.new(1,-24,0,20) n.ZIndex=103
-			local p=label(row,c.Tab.Name.."  ›  "..c.Section.Name,9,Theme.Muted,false) p.Position=UDim2.fromOffset(12,25) p.Size=UDim2.new(1,-24,0,15) p.ZIndex=103
-			row.MouseButton1Click:Connect(function()
-				self.SearchBox.Text="" self:SelectTab(c.Tab)
-				tween(c.Card,.12,{BackgroundColor3=Theme.Hover})
-				task.delay(.35,function() if c.Card.Parent then tween(c.Card,.18,{BackgroundColor3=Theme.Surface2}) end end)
-			end)
-		end
-	end
-end
-
-function Window:Notify(o)
+function Section:AddButtonGroup(o)
 	o=o or {}
-	local holder=self.Gui:FindFirstChild("LucidNotifications")
-	if not holder then
-		holder=new("Frame",{
-			Name="LucidNotifications",AnchorPoint=Vector2.new(1,0),
-			Position=UDim2.new(1,-16,0,16),Size=UDim2.fromOffset(330,500),
-			BackgroundTransparency=1
-		},self.Gui)
-		new("UIListLayout",{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},holder)
+	local opts=o.Options or {}
+	local card=New("Frame",{Size=UDim2.new(1,0,0,86),BackgroundColor3=self.Window.Theme.Card,BorderSizePixel=0},self.Frame)
+	Corner(card,8)
+	local title=Label(card,o.Name or "Actions",13,self.Window.Theme.Text,true)
+	title.Position=UDim2.fromOffset(13,8) title.Size=UDim2.new(1,-26,0,22)
+	local row=New("Frame",{Position=UDim2.fromOffset(13,42),Size=UDim2.new(1,-26,0,32),BackgroundTransparency=1},card)
+	New("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,6)},row)
+	for _,item in ipairs(opts) do
+		local name=type(item)=="table" and (item.Name or item[1]) or tostring(item)
+		local cb=type(item)=="table" and (item.Callback or item[2]) or function() end
+		local b=Button(row,name,11,self.Window.Theme.Text,true)
+		b.Size=UDim2.fromOffset(math.max(70,math.min(130,30+#name*6)),32) b.BackgroundTransparency=0 b.BackgroundColor3=self.Window.Theme.Control Corner(b,7)
+		b.MouseButton1Click:Connect(function() task.spawn(cb) end)
 	end
-	local card=new("TextButton",{
-		Size=UDim2.new(1,0,0,0),BackgroundColor3=Theme.Surface,
-		BackgroundTransparency=0,BorderSizePixel=0,Text="",AutoButtonColor=false,
-		ClipsDescendants=true
-	},holder)
-	corner(card,8) stroke(card,Theme.Border,.05)
-	local accent=o.Type=="Success" and Theme.Success or o.Type=="Warning" and Theme.Warning or (o.Type=="Error" or o.Type=="Danger") and Theme.Danger or Theme.Accent
-	local strip=new("Frame",{Size=UDim2.fromOffset(4,70),BackgroundColor3=accent,BorderSizePixel=0},card)
-	local title=label(card,o.Title or "LucidUI",13,Theme.Text,true) title.Position=UDim2.fromOffset(14,8) title.Size=UDim2.new(1,-28,0,20)
-	local desc=label(card,o.Description or o.Content or "",11,Theme.Muted,false) desc.Position=UDim2.fromOffset(14,30) desc.Size=UDim2.new(1,-28,0,30) desc.TextWrapped=true desc.TextYAlignment=Enum.TextYAlignment.Top
-	local duration=o.Duration or o.Time or 4
-	tween(card,.2,{Size=UDim2.new(1,0,0,70)})
-	local dead=false
-	local function kill()
-		if dead then return end dead=true
-		tween(card,.16,{Size=UDim2.new(1,0,0,0),BackgroundTransparency=1})
-		task.delay(.18,function() if card then card:Destroy() end end)
-	end
-	card.MouseButton1Click:Connect(kill)
-	task.delay(duration,kill)
+	return {Type="ButtonGroup",Card=card}
+end
+
+function Window:AddAppearanceTab()
+	local tab=self:AddTab("Lucid")
+	local sec=tab:AddSection("Appearance")
+	sec:AddDropdown({Name="Shape",Options={"Rounded","Soft","Square"},Default=self.Shape,Callback=function(v) self:SetShape(v) end})
+	sec:AddToggle({Name="Neon border",Default=self.Neon,Callback=function(v) self:SetNeon(v) end})
+	sec:AddTextbox({Name="Background",Description="Asset ID, rbxassetid:// ou URL quando o ambiente suportar",Placeholder="URL / Asset ID",Callback=function(v) self:SetBackground(v,.25) end})
+	sec:AddSlider({Name="Background opacity",Min=0,Max=100,Default=75,Suffix="%",Callback=function(v) self.BackgroundImage.ImageTransparency=1-v/100 end})
+	return tab
 end
 
 
-local function lucidDeepCopy(value)
-	if type(value) ~= "table" then return value end
-	local out = {}
-	for k,v in pairs(value) do out[lucidDeepCopy(k)] = lucidDeepCopy(v) end
-	return out
-end
+function Section:AddKeybind(o)
+	o=o or {}
+	local _,controls,c=self:_Base(o,o.Description and 64 or 56)
+	c.Type="Keybind"
+	c.Bind=o.Default or o.Bind
+	c.Binding=false
 
-local function lucidDisconnectAll(list)
-	for _,connection in ipairs(list or {}) do
-		pcall(function() connection:Disconnect() end)
-	end
-	table.clear(list)
-end
+	local button=Button(
+		controls,
+		c.Bind and c.Bind.Name or "None",
+		11,
+		self.Window.Theme.Text,
+		true
+	)
+	button.AnchorPoint=Vector2.new(1,.5)
+	button.Position=UDim2.new(1,0,.5,0)
+	button.Size=UDim2.fromOffset(100,32)
+	button.BackgroundTransparency=0
+	button.BackgroundColor3=self.Window.Theme.Control
+	Corner(button,7)
 
-local function lucidSerialize(value)
-	local t = typeof(value)
-	if t == "Color3" then
-		return {__type="Color3",R=value.R,G=value.G,B=value.B}
-	elseif t == "EnumItem" then
-		return {__type="EnumItem",Enum=tostring(value.EnumType),Name=value.Name}
-	elseif type(value) == "table" then
-		local out={}
-		for k,v in pairs(value) do out[k]=lucidSerialize(v) end
-		return out
-	end
-	return value
-end
-
-local function lucidDeserialize(value)
-	if type(value) ~= "table" then return value end
-	if value.__type == "Color3" then
-		return Color3.new(value.R,value.G,value.B)
-	end
-	local out={}
-	for k,v in pairs(value) do
-		if k ~= "__type" then out[k]=lucidDeserialize(v) end
-	end
-	return out
-end
-
-local function lucidJsonEncode(value)
-	return game:GetService("HttpService"):JSONEncode(lucidSerialize(value))
-end
-
-local function lucidJsonDecode(value)
-	return lucidDeserialize(game:GetService("HttpService"):JSONDecode(value))
-end
-
-LucidUI.Components = LucidUI.Components or {}
-LucidUI.Themes = LucidUI.Themes or {}
-
-LucidUI.Themes.Void = lucidDeepCopy(Theme)
-LucidUI.Themes.Blackout = {
-	Background=Color3.fromRGB(0,0,0),
-	Topbar=Color3.fromRGB(3,3,4),
-	Surface=Color3.fromRGB(5,5,7),
-	Surface2=Color3.fromRGB(8,8,11),
-	Surface3=Color3.fromRGB(13,13,18),
-	Hover=Color3.fromRGB(19,19,27),
-	Accent=Color3.fromRGB(105,76,255),
-	Text=Color3.fromRGB(248,248,252),
-	Muted=Color3.fromRGB(120,120,138),
-	Border=Color3.fromRGB(26,26,36),
-	Success=Color3.fromRGB(69,210,139),
-	Warning=Color3.fromRGB(255,191,74),
-	Danger=Color3.fromRGB(255,82,105),
-	Favorite=Color3.fromRGB(255,197,65)
-}
-LucidUI.Themes.Amethyst = {
-	Background=Color3.fromRGB(3,2,6),
-	Topbar=Color3.fromRGB(7,5,11),
-	Surface=Color3.fromRGB(10,7,15),
-	Surface2=Color3.fromRGB(15,11,22),
-	Surface3=Color3.fromRGB(22,16,31),
-	Hover=Color3.fromRGB(30,22,42),
-	Accent=Color3.fromRGB(139,92,246),
-	Text=Color3.fromRGB(248,247,252),
-	Muted=Color3.fromRGB(143,134,158),
-	Border=Color3.fromRGB(39,31,51),
-	Success=Color3.fromRGB(69,210,139),
-	Warning=Color3.fromRGB(255,191,74),
-	Danger=Color3.fromRGB(255,82,105),
-	Favorite=Color3.fromRGB(255,197,65)
-}
-
-function LucidUI:RegisterTheme(name,data)
-	LucidUI.Themes[name]=data
-end
-
-function LucidUI:GetTheme(name)
-	return LucidUI.Themes[name]
-end
-
-function LucidUI:RegisterIcon(name,id)
-	LucidUI.Icons[name]=normalizeIcon(id)
-end
-
-function LucidUI:GetIcon(name)
-	return LucidUI.Icons[name]
-end
-
-local OriginalCreateWindowV4 = LucidUI.CreateWindow
-
-function LucidUI:CreateWindow(options)
-	options=options or {}
-	local loading=options.Loading==true
-
-	local loadingGui
-	if loading then
-		loadingGui=new("ScreenGui",{Name="LucidLoading",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling})
-		safeParent(loadingGui)
-
-		local root=new("Frame",{
-			AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),
-			Size=UDim2.fromOffset(82,82),BackgroundColor3=Theme.Surface,
-			BackgroundTransparency=1,BorderSizePixel=0
-		},loadingGui)
-		corner(root,18)
-		stroke(root,Theme.Border,1)
-
-		local mark=label(root,"L",28,Theme.Text,true)
-		mark.AnchorPoint=Vector2.new(.5,.5)
-		mark.Position=UDim2.fromScale(.5,.43)
-		mark.Size=UDim2.fromOffset(44,44)
-		mark.TextXAlignment=Enum.TextXAlignment.Center
-		mark.TextTransparency=1
-
-		local name=label(root,options.Title or "LUCID",10,Theme.Muted,true)
-		name.AnchorPoint=Vector2.new(.5,1)
-		name.Position=UDim2.new(.5,0,1,-10)
-		name.Size=UDim2.fromOffset(160,16)
-		name.TextXAlignment=Enum.TextXAlignment.Center
-		name.TextTransparency=1
-
-		local line=new("Frame",{
-			AnchorPoint=Vector2.new(.5,1),Position=UDim2.new(.5,0,1,0),
-			Size=UDim2.new(0,0,0,2),BackgroundColor3=Theme.Accent,
-			BorderSizePixel=0
-		},root)
-		corner(line,4)
-
-		tween(root,.28,{Size=UDim2.fromOffset(260,110),BackgroundTransparency=0})
-		tween(mark,.22,{TextTransparency=0})
-		task.wait(.12)
-		tween(name,.22,{TextTransparency=0})
-		tween(line,.7,{Size=UDim2.new(.84,0,0,2)})
-		task.wait(options.LoadingTime or .75)
-		tween(root,.22,{Size=UDim2.fromOffset(300,120),BackgroundTransparency=1})
-		tween(mark,.18,{TextTransparency=1})
-		tween(name,.18,{TextTransparency=1})
-		task.wait(.2)
+	function c:Set(v)
+		self.Bind=v
+		button.Text=v and v.Name or "None"
+		if o.Flag then
+			self.Window.Flags[o.Flag]=v and v.Name or nil
+		end
 	end
 
-	local window=OriginalCreateWindowV4(self,options)
-	window.Flags={}
-	window.FlagObjects={}
-	window.Connections={}
-	window.Popups={}
-	window.Modals={}
-	window.ThemeName=options.Theme or "Void"
-	window.ConfigFolder=options.ConfigFolder or "LucidUI"
-	window.ConfigName=options.ConfigName or "default"
-	window.ToggleKey=options.ToggleKey or Enum.KeyCode.Tab
-	window.FirstP=options.FirstP==true
-	window.CommandKey=options.CommandKey or Enum.KeyCode.K
-	window.CommandModifier=options.CommandModifier or Enum.KeyCode.LeftControl
-	window._ModifierDown=false
-	window._Destroyed=false
-
-	if loadingGui then loadingGui:Destroy() end
-
-	window.Main.Size=window.Size
-	window.Main.BackgroundTransparency=0
-	window.Shadow.Visible=false
-
-	window:_CreateCommandPalette()
-	window:_CreateModalLayer()
-	window:_CreateToastCenter()
-	if window.FirstP and window.Visible then
-		window.SetVisible(true)
+	function c:Get()
+		return self.Bind
 	end
-	if window.FirstP then
-		local RunService=game:GetService("RunService")
-		table.insert(window.Connections,RunService.RenderStepped:Connect(function()
-			if window._Destroyed then return end
-			if window.Visible and window.Gui and window.Gui.Parent then
-				if UserInputService.MouseBehavior~=Enum.MouseBehavior.Default then
-					UserInputService.MouseBehavior=Enum.MouseBehavior.Default
-				end
-				if not UserInputService.MouseIconEnabled then
-					UserInputService.MouseIconEnabled=true
-				end
+
+	button.MouseButton1Click:Connect(function()
+		if c.Binding then
+			return
+		end
+
+		c.Binding=true
+		button.Text="Press key..."
+
+		local connection
+		connection=UIS.InputBegan:Connect(function(input)
+			if input.UserInputType~=Enum.UserInputType.Keyboard then
+				return
 			end
-		end))
-	end
 
-	table.insert(window.Connections,UserInputService.InputBegan:Connect(function(input,processed)
-		if input.KeyCode==window.CommandModifier then
-			window._ModifierDown=true
-		end
-		if not processed and input.KeyCode==window.CommandKey and window._ModifierDown then
-			window:ToggleCommandPalette()
-		end
-	end))
+			connection:Disconnect()
+			c.Binding=false
 
-	table.insert(window.Connections,UserInputService.InputEnded:Connect(function(input)
-		if input.KeyCode==window.CommandModifier then
-			window._ModifierDown=false
-		end
-	end))
-
-	return window
-end
-
-function Window:RegisterFlag(flag,object,default)
-	if not flag or flag=="" then return end
-	self.Flags[flag]=default
-	self.FlagObjects[flag]=object
-end
-
-function Window:SetFlag(flag,value,fire)
-	self.Flags[flag]=value
-	local object=self.FlagObjects[flag]
-	if object and object.Set then
-		object:Set(value,fire~=false)
-	end
-end
-
-function Window:GetFlag(flag)
-	return self.Flags[flag]
-end
-
-function Window:GetFlags()
-	return lucidDeepCopy(self.Flags)
-end
-
-function Window:SetAccent(color)
-	Theme.Accent=color
-	if self.FavoriteButton then
-		self.FavoriteButton.BackgroundColor3=self.FavoriteMode and Color3.fromRGB(40,31,12) or Theme.Surface2
-	end
-	for _,tab in ipairs(self.Tabs) do
-		if tab.Indicator then tab.Indicator.BackgroundColor3=color end
-	end
-end
-
-function Window:SetTheme(name)
-	local source=LucidUI.Themes[name]
-	if not source then return false end
-	self.ThemeName=name
-	for k,v in pairs(source) do Theme[k]=v end
-	self.Main.BackgroundColor3=Theme.Background
-	self.Topbar.BackgroundColor3=Theme.Topbar
-	for _,tab in ipairs(self.Tabs) do
-		tab.Button.BackgroundColor3=Theme.Surface2
-		tab.Label.TextColor3=tab==self.CurrentTab and Theme.Text or Theme.Muted
-		if tab.IconObject then
-			tab.IconObject.ImageColor3=tab==self.CurrentTab and Theme.Accent or Theme.Muted
-		end
-		tab.Indicator.BackgroundColor3=Theme.Accent
-	end
-	for _,component in ipairs(self.Components) do
-		if component.Card and component.Card.Parent then
-			component.Card.BackgroundColor3=Theme.Surface2
-		end
-	end
-	return true
-end
-
-function Window:Show()
-	self.SetVisible(true)
-end
-
-function Window:Hide()
-	self.SetVisible(false)
-end
-
-function Window:Toggle()
-	self.SetVisible(not self.Visible)
-end
-
-function Window:Destroy()
-	if self._Destroyed then return end
-	if self.FirstP and self.Visible then
-		self.SetVisible(false)
-	end
-	self._Destroyed=true
-	lucidDisconnectAll(self.Connections)
-	if self.Gui then self.Gui:Destroy() end
-end
-
-function Window:ClosePopups(except)
-	for popup,_ in pairs(self.Popups) do
-		if popup~=except and popup and popup.Parent then
-			popup:Destroy()
-			self.Popups[popup]=nil
-		end
-	end
-end
-
-
-function Window:ClampPopup(popup)
-	task.defer(function()
-		if not popup or not popup.Parent then return end
-		local viewport=workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920,1080)
-		local x=math.clamp(popup.AbsolutePosition.X,8,math.max(8,viewport.X-popup.AbsoluteSize.X-8))
-		local y=math.clamp(popup.AbsolutePosition.Y,8,math.max(8,viewport.Y-popup.AbsoluteSize.Y-8))
-		popup.Position=UDim2.fromOffset(x,y)
-	end)
-	return popup
-end
-
-function Window:RegisterPopup(popup)
-	self:ClosePopups(popup)
-	self.Popups[popup]=true
-	self:ClampPopup(popup)
-	return popup
-end
-
-function Window:_CreateModalLayer()
-	local layer=new("Frame",{
-		Name="ModalLayer",Visible=false,Size=UDim2.fromScale(1,1),
-		BackgroundColor3=Color3.new(),BackgroundTransparency=.35,
-		BorderSizePixel=0,ZIndex=300
-	},self.Gui)
-	self.ModalLayer=layer
-end
-
-function Window:Confirm(options)
-	options=options or {}
-	local layer=self.ModalLayer
-	layer.Visible=true
-	for _,child in ipairs(layer:GetChildren()) do child:Destroy() end
-
-	local card=new("Frame",{
-		AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),
-		Size=UDim2.fromOffset(390,190),BackgroundColor3=Theme.Surface,
-		BorderSizePixel=0,ZIndex=301
-	},layer)
-	corner(card,12)
-	stroke(card,Theme.Border,.05)
-
-	local title=label(card,options.Title or "Confirm",16,Theme.Text,true)
-	title.Position=UDim2.fromOffset(18,16)
-	title.Size=UDim2.new(1,-36,0,24)
-	title.ZIndex=302
-
-	local body=label(card,options.Content or options.Description or "Are you sure?",12,Theme.Muted,false)
-	body.Position=UDim2.fromOffset(18,48)
-	body.Size=UDim2.new(1,-36,0,70)
-	body.TextWrapped=true
-	body.TextYAlignment=Enum.TextYAlignment.Top
-	body.ZIndex=302
-
-	local cancel=button(card,options.CancelText or "Cancel",11,Theme.Text,true)
-	cancel.Position=UDim2.new(1,-194,1,-52)
-	cancel.Size=UDim2.fromOffset(80,32)
-	cancel.BackgroundTransparency=0
-	cancel.BackgroundColor3=Theme.Surface3
-	cancel.ZIndex=302
-	corner(cancel,8)
-
-	local accept=button(card,options.AcceptText or "Confirm",11,Theme.Text,true)
-	accept.Position=UDim2.new(1,-106,1,-52)
-	accept.Size=UDim2.fromOffset(88,32)
-	accept.BackgroundTransparency=0
-	accept.BackgroundColor3=Theme.Accent
-	accept.ZIndex=302
-	corner(accept,8)
-
-	local function close()
-		layer.Visible=false
-		for _,child in ipairs(layer:GetChildren()) do child:Destroy() end
-	end
-
-	cancel.MouseButton1Click:Connect(function()
-		close()
-		if options.OnCancel then task.spawn(options.OnCancel) end
-	end)
-
-	accept.MouseButton1Click:Connect(function()
-		close()
-		if options.Callback then task.spawn(options.Callback,true) end
-	end)
-end
-
-function Window:_CreateToastCenter()
-	local center=new("Frame",{
-		Name="ToastCenter",AnchorPoint=Vector2.new(1,0),
-		Position=UDim2.new(1,-16,0,16),Size=UDim2.fromOffset(340,560),
-		BackgroundTransparency=1
-	},self.Gui)
-	new("UIListLayout",{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},center)
-	self.ToastCenter=center
-end
-
-function Window:Toast(options)
-	options=options or {}
-	local card=new("Frame",{
-		Size=UDim2.new(1,0,0,0),BackgroundColor3=Theme.Surface,
-		BorderSizePixel=0,ClipsDescendants=true
-	},self.ToastCenter)
-	corner(card,9)
-	stroke(card,Theme.Border,.08)
-
-	local iconBox=new("Frame",{
-		Position=UDim2.fromOffset(10,12),Size=UDim2.fromOffset(34,34),
-		BackgroundColor3=Theme.Surface3,BorderSizePixel=0
-	},card)
-	corner(iconBox,8)
-
-	local mark=label(iconBox,options.Mark or "L",14,options.Color or Theme.Accent,true)
-	mark.Size=UDim2.fromScale(1,1)
-	mark.TextXAlignment=Enum.TextXAlignment.Center
-
-	local title=label(card,options.Title or "Lucid",12,Theme.Text,true)
-	title.Position=UDim2.fromOffset(54,9)
-	title.Size=UDim2.new(1,-70,0,20)
-
-	local desc=label(card,options.Content or "",10,Theme.Muted,false)
-	desc.Position=UDim2.fromOffset(54,29)
-	desc.Size=UDim2.new(1,-70,0,28)
-	desc.TextWrapped=true
-	desc.TextYAlignment=Enum.TextYAlignment.Top
-
-	local life=options.Duration or 4
-	local progress=new("Frame",{
-		AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,0,1,0),
-		Size=UDim2.new(1,0,0,2),BackgroundColor3=options.Color or Theme.Accent,
-		BorderSizePixel=0
-	},card)
-
-	tween(card,.2,{Size=UDim2.new(1,0,0,66)})
-	tween(progress,life,{Size=UDim2.new(0,0,0,2)})
-	task.delay(life,function()
-		if not card.Parent then return end
-		tween(card,.16,{Size=UDim2.new(1,0,0,0),BackgroundTransparency=1})
-		task.wait(.17)
-		if card then card:Destroy() end
-	end)
-end
-
-function Window:_CreateCommandPalette()
-	local overlay=new("Frame",{
-		Name="CommandPalette",Visible=false,Size=UDim2.fromScale(1,1),
-		BackgroundColor3=Color3.new(),BackgroundTransparency=.45,
-		BorderSizePixel=0,ZIndex=200
-	},self.Gui)
-
-	local card=new("Frame",{
-		AnchorPoint=Vector2.new(.5,0),Position=UDim2.new(.5,0,0,90),
-		Size=UDim2.fromOffset(540,390),BackgroundColor3=Theme.Surface,
-		BorderSizePixel=0,ZIndex=201
-	},overlay)
-	corner(card,12)
-	stroke(card,Theme.Border,.05)
-
-	local search=new("TextBox",{
-		Position=UDim2.fromOffset(12,12),Size=UDim2.new(1,-24,0,42),
-		BackgroundColor3=Theme.Surface2,BorderSizePixel=0,Text="",
-		PlaceholderText="Type a command or option...",PlaceholderColor3=Theme.Muted,
-		TextColor3=Theme.Text,TextSize=12,Font=Enum.Font.Gotham,
-		ClearTextOnFocus=false,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=202
-	},card)
-	corner(search,8)
-	pad(search,12,12,0,0)
-
-	local results=new("ScrollingFrame",{
-		Position=UDim2.fromOffset(12,64),Size=UDim2.new(1,-24,1,-76),
-		BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,
-		CanvasSize=UDim2.new(),ZIndex=202
-	},card)
-	local layout=new("UIListLayout",{Padding=UDim.new(0,10)},results)
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		results.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+8)
-	end)
-
-	self.CommandOverlay=overlay
-	self.CommandSearch=search
-	self.CommandResults=results
-
-	local function rebuild()
-		for _,child in ipairs(results:GetChildren()) do
-			if child:IsA("TextButton") then child:Destroy() end
-		end
-		local q=search.Text:lower()
-		for _,component in ipairs(self.Components) do
-			local hay=(component.Name.." "..component.Description.." "..component.Tab.Name.." "..component.Section.Name):lower()
-			if q=="" or hay:find(q,1,true) then
-				local row=button(results,"",11,Theme.Text,false)
-				row.Size=UDim2.new(1,0,0,46)
-				row.BackgroundTransparency=0
-				row.BackgroundColor3=Theme.Surface2
-				row.ZIndex=203
-				corner(row,7)
-
-				local n=label(row,component.Name,11,Theme.Text,true)
-				n.Position=UDim2.fromOffset(10,3)
-				n.Size=UDim2.new(1,-20,0,20)
-				n.ZIndex=204
-
-				local path=label(row,component.Tab.Name.."  ›  "..component.Section.Name,9,Theme.Muted,false)
-				path.Position=UDim2.fromOffset(10,23)
-				path.Size=UDim2.new(1,-20,0,16)
-				path.ZIndex=204
-
-				row.MouseButton1Click:Connect(function()
-					overlay.Visible=false
-					self:Show()
-					self:SelectTab(component.Tab)
-					if component.Card then
-						tween(component.Card,.12,{BackgroundColor3=Theme.Hover})
-						task.delay(.35,function()
-							if component.Card and component.Card.Parent then
-								tween(component.Card,.18,{BackgroundColor3=Theme.Surface2})
-							end
-						end)
-					end
-				end)
+			if input.KeyCode==Enum.KeyCode.Escape or input.KeyCode==Enum.KeyCode.Backspace then
+				c:Set(nil)
+			else
+				c:Set(input.KeyCode)
 			end
-		end
-	end
-
-	search:GetPropertyChangedSignal("Text"):Connect(rebuild)
-	self._RebuildCommands=rebuild
-end
-
-function Window:ToggleCommandPalette()
-	self.CommandOverlay.Visible=not self.CommandOverlay.Visible
-	if self.CommandOverlay.Visible then
-		self.CommandSearch.Text=""
-		self._RebuildCommands()
-		self.CommandSearch:CaptureFocus()
-	end
-end
-
-function Window:SaveConfig(name)
-	name=name or self.ConfigName
-	if not writefile or not isfolder or not makefolder then return false,"filesystem unavailable" end
-	if not isfolder(self.ConfigFolder) then makefolder(self.ConfigFolder) end
-	local path=self.ConfigFolder.."/"..name..".json"
-	local ok,err=pcall(function()
-		writefile(path,lucidJsonEncode(self.Flags))
+		end)
 	end)
-	return ok,err
-end
 
-function Window:LoadConfig(name)
-	name=name or self.ConfigName
-	if not readfile or not isfile then return false,"filesystem unavailable" end
-	local path=self.ConfigFolder.."/"..name..".json"
-	if not isfile(path) then return false,"config not found" end
-	local ok,data=pcall(function() return lucidJsonDecode(readfile(path)) end)
-	if not ok then return false,data end
-	for flag,value in pairs(data) do
-		self:SetFlag(flag,value,true)
-	end
-	return true
-end
-
-function Window:DeleteConfig(name)
-	name=name or self.ConfigName
-	if not delfile or not isfile then return false,"filesystem unavailable" end
-	local path=self.ConfigFolder.."/"..name..".json"
-	if isfile(path) then delfile(path) end
-	return true
-end
-
-function Window:ListConfigs()
-	if not listfiles or not isfolder then return {} end
-	if not isfolder(self.ConfigFolder) then return {} end
-	local out={}
-	for _,path in ipairs(listfiles(self.ConfigFolder)) do
-		local name=path:match("([^/\\]+)%.json$")
-		if name then table.insert(out,name) end
-	end
-	return out
-end
-
-function Tab:AddSubTabs(options)
-	options=options or {}
-	local holder=new("Frame",{
-		Size=UDim2.new(1,0,0,46),AutomaticSize=Enum.AutomaticSize.Y,
-		BackgroundColor3=Theme.Surface,BorderSizePixel=0
-	},self.Page)
-	corner(holder,10)
-	stroke(holder,Theme.Border,.25)
-	pad(holder,8,8,8,8)
-
-	local bar=new("Frame",{Size=UDim2.new(1,0,0,34),BackgroundTransparency=1},holder)
-	local layout=new("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,5)},bar)
-
-	local pages=new("Frame",{
-		Position=UDim2.fromOffset(0,42),Size=UDim2.new(1,0,0,0),
-		AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1
-	},holder)
-
-	local object={Tabs={},Current=nil}
-
-	function object:Add(name)
-		local b=button(bar,name,10,Theme.Muted,true)
-		b.Size=UDim2.fromOffset(100,32)
-		b.BackgroundTransparency=0
-		b.BackgroundColor3=Theme.Surface2
-		corner(b,7)
-
-		local page=new("Frame",{
-			Visible=false,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,
-			BackgroundTransparency=1
-		},pages)
-		new("UIListLayout",{Padding=UDim.new(0,7)},page)
-
-		local sub={Name=name,Button=b,Page=page}
-		function sub:AddLabel(text)
-			local l=label(page,text,11,Theme.Text,false)
-			l.Size=UDim2.new(1,0,0,30)
-			return l
-		end
-		function sub:AddButton(opts)
-			opts=opts or {}
-			local x=button(page,opts.Name or "Button",11,Theme.Text,true)
-			x.Size=UDim2.new(1,0,0,38)
-			x.BackgroundTransparency=0
-			x.BackgroundColor3=Theme.Surface2
-			corner(x,7)
-			x.MouseButton1Click:Connect(opts.Callback or function() end)
-			return x
-		end
-
-		table.insert(object.Tabs,sub)
-
-		local function select()
-			for _,t in ipairs(object.Tabs) do
-				local active=t==sub
-				t.Page.Visible=active
-				t.Button.TextColor3=active and Theme.Text or Theme.Muted
-				t.Button.BackgroundColor3=active and Theme.Surface3 or Theme.Surface2
+	table.insert(
+		self.Window.Connections,
+		UIS.InputBegan:Connect(function(input,processed)
+			if processed or c.Binding then
+				return
 			end
-			object.Current=sub
-		end
 
-		b.MouseButton1Click:Connect(select)
-		if not object.Current then select() end
-		return sub
-	end
+			if c.Bind and input.KeyCode==c.Bind then
+				task.spawn(
+					o.Callback or function()
+					end,
+					c.Bind
+				)
+			end
+		end)
+	)
 
-	return object
-end
-
-function Section:AddParagraph(o)
-	if type(o)=="string" then o={Title="",Content=o} end
-	o=o or {}
-	local card,c=self:_Card(o.Title or o.Name or "Paragraph",nil,o.Height or 92)
-	local body=label(card,o.Content or o.Description or "",11,Theme.Muted,false)
-	body.Position=UDim2.fromOffset(12,30)
-	body.Size=UDim2.new(1,-54,1,-40)
-	body.TextWrapped=true
-	body.TextYAlignment=Enum.TextYAlignment.Top
-	c.Set=function(_,text) body.Text=tostring(text) end
-	c.Get=function() return body.Text end
-	return c
-end
-
-function Section:AddDivider(o)
-	o=o or {}
-	local text=type(o)=="string" and o or o.Text
-	local frame=new("Frame",{Size=UDim2.new(1,0,0,text and 30 or 16),BackgroundTransparency=1},self.Content)
-	local line=new("Frame",{
-		AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),
-		Size=UDim2.new(1,0,0,1),BackgroundColor3=Theme.Border,BorderSizePixel=0
-	},frame)
-	if text then
-		local tag=label(frame,text,9,Theme.Muted,true)
-		tag.AnchorPoint=Vector2.new(.5,.5)
-		tag.Position=UDim2.fromScale(.5,.5)
-		tag.Size=UDim2.fromOffset(math.max(70,#text*7+18),22)
-		tag.BackgroundTransparency=0
-		tag.BackgroundColor3=Theme.Surface
-		tag.TextXAlignment=Enum.TextXAlignment.Center
-	end
-	return frame
-end
-
-function Section:AddBadge(o)
-	o=o or {}
-	local card,c=self:_Card(o.Name or "Badge",o.Description,48)
-	local badge=label(card,o.Text or "NEW",9,o.Color or Theme.Text,true)
-	badge.AnchorPoint=Vector2.new(1,.5)
-	badge.Position=UDim2.new(1,-42,.5,0)
-	badge.Size=UDim2.fromOffset(o.Width or 62,24)
-	badge.BackgroundTransparency=0
-	badge.BackgroundColor3=o.Background or Theme.Surface3
-	badge.TextXAlignment=Enum.TextXAlignment.Center
-	corner(badge,12)
-	c.Set=function(_,text) badge.Text=tostring(text) end
-	return c
-end
-
-function Section:AddProgress(o)
-	o=o or {}
-	local value=math.clamp(o.Default or 0,o.Min or 0,o.Max or 100)
-	local min,max=o.Min or 0,o.Max or 100
-	local card,c=self:_Card(o.Name or "Progress",o.Description,66)
-	local valueLabel=label(card,tostring(value)..(o.Suffix or "%"),10,Theme.Muted,true)
-	valueLabel.AnchorPoint=Vector2.new(1,0)
-	valueLabel.Position=UDim2.new(1,-42,0,7)
-	valueLabel.Size=UDim2.fromOffset(70,18)
-	valueLabel.TextXAlignment=Enum.TextXAlignment.Right
-
-	local track=new("Frame",{
-		Position=UDim2.new(0,12,1,-17),Size=UDim2.new(1,-56,0,6),
-		BackgroundColor3=Theme.Surface3,BorderSizePixel=0
-	},card)
-	corner(track,8)
-
-	local fill=new("Frame",{
-		Size=UDim2.new((value-min)/(max-min),0,1,0),
-		BackgroundColor3=o.Color or Theme.Accent,BorderSizePixel=0
-	},track)
-	corner(fill,8)
-
-	local function set(v)
-		value=math.clamp(v,min,max)
-		tween(fill,.18,{Size=UDim2.new((value-min)/(max-min),0,1,0)})
-		valueLabel.Text=tostring(value)..(o.Suffix or "%")
-	end
-	c.Set=function(_,v) set(v) end
-	c.Get=function() return value end
 	return c
 end
 
 function Section:AddNumberbox(o)
 	o=o or {}
 	local value=tonumber(o.Default) or 0
-	local min,max=o.Min or -math.huge,o.Max or math.huge
-	local step=o.Step or 1
-	local card,c=self:_Card(o.Name or "Number",o.Description,52)
+	local _,controls,c=self:_Base(o,o.Description and 64 or 56)
+	c.Type="Numberbox"
 
-	local minus=button(card,"−",16,Theme.Text,true)
-	minus.AnchorPoint=Vector2.new(1,.5)
-	minus.Position=UDim2.new(1,-142,.5,0)
-	minus.Size=UDim2.fromOffset(30,30)
-	minus.BackgroundTransparency=0
-	minus.BackgroundColor3=Theme.Surface3
-	corner(minus,7)
-
-	local box=new("TextBox",{
-		AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-78,.5,0),
-		Size=UDim2.fromOffset(58,30),BackgroundColor3=Theme.Surface3,
-		BorderSizePixel=0,Text=tostring(value),TextColor3=Theme.Text,
-		TextSize=11,Font=Enum.Font.GothamBold,ClearTextOnFocus=false
-	},card)
-	corner(box,7)
-
-	local plus=button(card,"+",15,Theme.Text,true)
-	plus.AnchorPoint=Vector2.new(1,.5)
-	plus.Position=UDim2.new(1,-42,.5,0)
-	plus.Size=UDim2.fromOffset(30,30)
-	plus.BackgroundTransparency=0
-	plus.BackgroundColor3=Theme.Surface3
-	corner(plus,7)
+	local box=New(
+		"TextBox",
+		{
+			AnchorPoint=Vector2.new(1,.5),
+			Position=UDim2.new(1,0,.5,0),
+			Size=UDim2.fromOffset(110,32),
+			BackgroundColor3=self.Window.Theme.Control,
+			BorderSizePixel=0,
+			Text=tostring(value),
+			TextColor3=self.Window.Theme.Text,
+			TextSize=11,
+			Font=Enum.Font.Gotham,
+			ClearTextOnFocus=false
+		},
+		controls
+	)
+	Corner(box,7)
 
 	local function set(v,fire)
-		value=math.clamp(tonumber(v) or value,min,max)
-		if o.Decimals then
-			local m=10^o.Decimals
-			value=math.floor(value*m+.5)/m
-		end
-		box.Text=tostring(value)
-		if fire then task.spawn(o.Callback or function() end,value) end
-		if o.Flag then self.Window.Flags[o.Flag]=value end
-	end
-
-	minus.MouseButton1Click:Connect(function() set(value-step,true) end)
-	plus.MouseButton1Click:Connect(function() set(value+step,true) end)
-	box.FocusLost:Connect(function() set(box.Text,true) end)
-
-	c.Set=function(_,v,fire) set(v,fire~=false) end
-	c.Get=function() return value end
-	if o.Flag then self.Window:RegisterFlag(o.Flag,c,value) end
-	return c
-end
-
-function Section:AddKeybind(o)
-	o=o or {}
-	local current=o.Default or Enum.KeyCode.Unknown
-	local listening=false
-	local card,c=self:_Card(o.Name or "Keybind",o.Description,52)
-
-	local key=button(card,current.Name,10,Theme.Text,true)
-	key.AnchorPoint=Vector2.new(1,.5)
-	key.Position=UDim2.new(1,-42,.5,0)
-	key.Size=UDim2.fromOffset(100,30)
-	key.BackgroundTransparency=0
-	key.BackgroundColor3=Theme.Surface3
-	corner(key,7)
-
-	key.MouseButton1Click:Connect(function()
-		listening=true
-		key.Text="..."
-		tween(key,.12,{BackgroundColor3=Theme.Hover})
-	end)
-
-	local connection=UserInputService.InputBegan:Connect(function(input,processed)
-		if listening and input.UserInputType==Enum.UserInputType.Keyboard then
-			listening=false
-			current=input.KeyCode
-			key.Text=current.Name
-			key.BackgroundColor3=Theme.Surface3
-			if o.Flag then self.Window.Flags[o.Flag]=current.Name end
-			if o.Changed then task.spawn(o.Changed,current) end
+		v=tonumber(v)
+		if not v then
+			box.Text=tostring(value)
 			return
 		end
-		if not processed and input.KeyCode==current then
-			task.spawn(o.Callback or function() end,current)
+
+		if o.Min then
+			v=math.max(o.Min,v)
 		end
+
+		if o.Max then
+			v=math.min(o.Max,v)
+		end
+
+		value=v
+		box.Text=tostring(value)
+
+		if o.Flag then
+			self.Window.Flags[o.Flag]=value
+		end
+
+		if fire then
+			task.spawn(
+				o.Callback or function()
+				end,
+				value
+			)
+		end
+	end
+
+	box.FocusLost:Connect(function()
+		set(box.Text,true)
 	end)
-	table.insert(self.Window.Connections,connection)
 
 	c.Set=function(_,v)
-		if typeof(v)=="EnumItem" then current=v
-		elseif type(v)=="string" and Enum.KeyCode[v] then current=Enum.KeyCode[v] end
-		key.Text=current.Name
+		set(v,true)
 	end
-	c.Get=function() return current end
-	if o.Flag then self.Window:RegisterFlag(o.Flag,c,current.Name) end
+
+	c.Get=function()
+		return value
+	end
+
 	return c
 end
 
-function Section:AddButtonGroup(o)
+function Section:AddParagraph(o)
 	o=o or {}
-	local card,c=self:_Card(o.Name or "Actions",o.Description,58)
-	local holder=new("Frame",{
-		Position=UDim2.new(.36,0,.5,-16),Size=UDim2.new(.64,-42,0,32),
-		BackgroundTransparency=1
-	},card)
-	local layout=new("UIListLayout",{
-		FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Right,
-		Padding=UDim.new(0,5)
-	},holder)
-	for _,item in ipairs(o.Buttons or {}) do
-		local b=button(holder,item.Name or "Action",10,Theme.Text,true)
-		b.Size=UDim2.fromOffset(item.Width or 76,30)
-		b.BackgroundTransparency=0
-		b.BackgroundColor3=Theme.Surface3
-		corner(b,7)
-		b.MouseEnter:Connect(function() tween(b,.1,{BackgroundColor3=Theme.Hover}) end)
-		b.MouseLeave:Connect(function() tween(b,.1,{BackgroundColor3=Theme.Surface3}) end)
-		b.MouseButton1Click:Connect(item.Callback or function() end)
-	end
-	return c
-end
 
-function Section:AddRadioGroup(o)
-	o=o or {}
-	local values=o.Values or {}
-	local selected=o.Default or values[1]
-	local height=50+#values*34
-	local card,c=self:_Card(o.Name or "Radio",o.Description,height)
-	local holder=new("Frame",{
-		Position=UDim2.fromOffset(12,42),Size=UDim2.new(1,-54,0,#values*32),
-		BackgroundTransparency=1
-	},card)
-	new("UIListLayout",{Padding=UDim.new(0,3)},holder)
-	local rows={}
-
-	local function set(v,fire)
-		selected=v
-		for value,row in pairs(rows) do
-			row.Dot.BackgroundColor3=value==selected and Theme.Accent or Theme.Surface3
-			row.Text.TextColor3=value==selected and Theme.Text or Theme.Muted
-		end
-		if o.Flag then self.Window.Flags[o.Flag]=selected end
-		if fire then task.spawn(o.Callback or function() end,selected) end
-	end
-
-	for _,value in ipairs(values) do
-		local row=button(holder,"",10,Theme.Text,false)
-		row.Size=UDim2.new(1,0,0,29)
-		local dot=new("Frame",{
-			Position=UDim2.new(0,2,.5,-7),Size=UDim2.fromOffset(14,14),
-			BackgroundColor3=value==selected and Theme.Accent or Theme.Surface3,
+	local card=New(
+		"Frame",
+		{
+			Size=UDim2.new(1,0,0,o.Height or 92),
+			BackgroundColor3=self.Window.Theme.Card,
 			BorderSizePixel=0
-		},row)
-		corner(dot,10)
-		stroke(dot,Theme.Border,.2)
-		local tx=label(row,tostring(value),10,value==selected and Theme.Text or Theme.Muted,false)
-		tx.Position=UDim2.fromOffset(25,0)
-		tx.Size=UDim2.new(1,-25,1,0)
-		rows[value]={Dot=dot,Text=tx}
-		row.MouseButton1Click:Connect(function() set(value,true) end)
-	end
+		},
+		self.Frame
+	)
+	Corner(card,8)
+	Pad(card,13,13,10,10)
 
-	c.Set=function(_,v,fire) set(v,fire~=false) end
-	c.Get=function() return selected end
-	if o.Flag then self.Window:RegisterFlag(o.Flag,c,selected) end
-	return c
-end
+	local layout=New(
+		"UIListLayout",
+		{
+			Padding=UDim.new(0,5),
+			SortOrder=Enum.SortOrder.LayoutOrder
+		},
+		card
+	)
 
-function Section:AddMultiDropdown(o)
-	o=o or {}
-	local values=o.Values or {}
-	local selected={}
-	for _,v in ipairs(o.Default or {}) do selected[v]=true end
-	local card,c=self:_Card(o.Name or "Multi Dropdown",o.Description,52)
-	local pick=button(card,"Select",10,Theme.Text,false)
-	pick.AnchorPoint=Vector2.new(1,.5)
-	pick.Position=UDim2.new(1,-42,.5,0)
-	pick.Size=UDim2.fromOffset(180,30)
-	pick.BackgroundTransparency=0
-	pick.BackgroundColor3=Theme.Surface3
-	corner(pick,7)
-	local popup
+	local title=Label(
+		card,
+		o.Name or o.Title or "Paragraph",
+		13,
+		self.Window.Theme.Text,
+		true
+	)
+	title.Size=UDim2.new(1,0,0,20)
 
-	local function array()
-		local out={}
-		for _,v in ipairs(values) do if selected[v] then table.insert(out,v) end end
-		return out
-	end
+	local text=Label(
+		card,
+		o.Content or o.Text or "",
+		11,
+		self.Window.Theme.Muted,
+		false
+	)
+	text.Size=UDim2.new(1,0,0,o.Height and o.Height-45 or 47)
+	text.TextWrapped=true
+	text.TextTruncate=Enum.TextTruncate.None
+	text.TextYAlignment=Enum.TextYAlignment.Top
 
-	local function refresh()
-		local a=array()
-		if #a==0 then pick.Text="Select"
-		elseif #a==1 then pick.Text=tostring(a[1])
-		else pick.Text=tostring(#a).." selected" end
-		if o.Flag then self.Window.Flags[o.Flag]=a end
-	end
-	refresh()
-
-	pick.MouseButton1Click:Connect(function()
-		if popup then popup:Destroy() popup=nil return end
-		popup=new("Frame",{
-			Position=UDim2.fromOffset(pick.AbsolutePosition.X+pick.AbsoluteSize.X-210,pick.AbsolutePosition.Y+pick.AbsoluteSize.Y+5),
-			Size=UDim2.fromOffset(210,math.min(#values*35+12,220)),
-			BackgroundColor3=Theme.Surface,BorderSizePixel=0,ZIndex=160
-		},self.Window.Gui)
-		corner(popup,9)
-		stroke(popup,Theme.Border,.05)
-		self.Window:RegisterPopup(popup)
-
-		local list=new("ScrollingFrame",{
-			Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-			ScrollBarThickness=2,CanvasSize=UDim2.fromOffset(0,#values*35+8),ZIndex=161
-		},popup)
-		pad(list,6,6,6,6)
-		new("UIListLayout",{Padding=UDim.new(0,4)},list)
-
-		for _,value in ipairs(values) do
-			local row=button(list,"",10,Theme.Text,false)
-			row.Size=UDim2.new(1,0,0,31)
-			row.BackgroundTransparency=0
-			row.BackgroundColor3=Theme.Surface2
-			row.ZIndex=162
-			corner(row,6)
-
-			local check=new("Frame",{
-				Position=UDim2.new(0,7,.5,-7),Size=UDim2.fromOffset(14,14),
-				BackgroundColor3=selected[value] and Theme.Accent or Theme.Surface3,
-				BorderSizePixel=0,ZIndex=163
-			},row)
-			corner(check,4)
-
-			local tx=label(row,tostring(value),10,Theme.Text,false)
-			tx.Position=UDim2.fromOffset(29,0)
-			tx.Size=UDim2.new(1,-35,1,0)
-			tx.ZIndex=163
-
-			row.MouseButton1Click:Connect(function()
-				selected[value]=not selected[value]
-				check.BackgroundColor3=selected[value] and Theme.Accent or Theme.Surface3
-				refresh()
-				task.spawn(o.Callback or function() end,array())
-			end)
-		end
-	end)
-
-	c.Get=function() return array() end
-	c.Set=function(_,items,fire)
-		table.clear(selected)
-		for _,v in ipairs(items or {}) do selected[v]=true end
-		refresh()
-		if fire~=false then task.spawn(o.Callback or function() end,array()) end
-	end
-	if o.Flag then self.Window:RegisterFlag(o.Flag,c,array()) end
-	return c
-end
-
-function Section:AddColorPicker(o)
-	o=o or {}
-	local value=o.Default or Color3.fromRGB(255,255,255)
-	local hue,sat,val=Color3.toHSV(value)
-	local card,c=self:_Card(o.Name or "Color",o.Description,52)
-
-	local preview=button(card,"",1,Theme.Text,false)
-	preview.AnchorPoint=Vector2.new(1,.5)
-	preview.Position=UDim2.new(1,-42,.5,0)
-	preview.Size=UDim2.fromOffset(54,28)
-	preview.BackgroundTransparency=0
-	preview.BackgroundColor3=value
-	corner(preview,7)
-	stroke(preview,Theme.Border,.2)
-
-	local popup
-	local function setColor(color,fire)
-		value=color
-		hue,sat,val=Color3.toHSV(value)
-		preview.BackgroundColor3=value
-		if o.Flag then self.Window.Flags[o.Flag]=value end
-		if fire then task.spawn(o.Callback or function() end,value) end
-	end
-
-	preview.MouseButton1Click:Connect(function()
-		if popup then popup:Destroy() popup=nil return end
-		popup=new("Frame",{
-			Position=UDim2.fromOffset(preview.AbsolutePosition.X+preview.AbsoluteSize.X-250,preview.AbsolutePosition.Y+preview.AbsoluteSize.Y+5),
-			Size=UDim2.fromOffset(250,225),BackgroundColor3=Theme.Surface,
-			BorderSizePixel=0,ZIndex=170
-		},self.Window.Gui)
-		corner(popup,10)
-		stroke(popup,Theme.Border,.05)
-		self.Window:RegisterPopup(popup)
-
-		local sv=new("Frame",{
-			Position=UDim2.fromOffset(10,10),Size=UDim2.new(1,-20,0,150),
-			BackgroundColor3=Color3.fromHSV(hue,1,1),BorderSizePixel=0,ZIndex=171
-		},popup)
-		corner(sv,7)
-
-		local white=new("UIGradient",{
-			Color=ColorSequence.new(Color3.new(1,1,1),Color3.new(1,1,1)),
-			Transparency=NumberSequence.new({
-				NumberSequenceKeypoint.new(0,0),
-				NumberSequenceKeypoint.new(1,1)
-			})
-		},sv)
-
-		local black=new("Frame",{
-			Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(),
-			BackgroundTransparency=1,BorderSizePixel=0,ZIndex=172
-		},sv)
-		corner(black,7)
-		local bg=new("UIGradient",{
-			Rotation=90,
-			Color=ColorSequence.new(Color3.new(),Color3.new()),
-			Transparency=NumberSequence.new({
-				NumberSequenceKeypoint.new(0,1),
-				NumberSequenceKeypoint.new(1,0)
-			})
-		},black)
-
-		local hueBar=new("Frame",{
-			Position=UDim2.fromOffset(10,170),Size=UDim2.new(1,-20,0,18),
-			BorderSizePixel=0,ZIndex=171
-		},popup)
-		corner(hueBar,6)
-		new("UIGradient",{
-			Color=ColorSequence.new({
-				ColorSequenceKeypoint.new(0,Color3.fromHSV(0,1,1)),
-				ColorSequenceKeypoint.new(.17,Color3.fromHSV(.17,1,1)),
-				ColorSequenceKeypoint.new(.33,Color3.fromHSV(.33,1,1)),
-				ColorSequenceKeypoint.new(.5,Color3.fromHSV(.5,1,1)),
-				ColorSequenceKeypoint.new(.67,Color3.fromHSV(.67,1,1)),
-				ColorSequenceKeypoint.new(.83,Color3.fromHSV(.83,1,1)),
-				ColorSequenceKeypoint.new(1,Color3.fromHSV(1,1,1))
-			})
-		},hueBar)
-
-		local hex=new("TextBox",{
-			Position=UDim2.fromOffset(10,196),Size=UDim2.new(1,-20,0,22),
-			BackgroundColor3=Theme.Surface2,BorderSizePixel=0,
-			Text=string.format("#%02X%02X%02X",math.floor(value.R*255),math.floor(value.G*255),math.floor(value.B*255)),
-			TextColor3=Theme.Text,TextSize=10,Font=Enum.Font.Gotham,
-			ClearTextOnFocus=false,ZIndex=171
-		},popup)
-		corner(hex,6)
-
-		local draggingSV=false
-		local draggingHue=false
-
-		local function updateSV(pos)
-			local x=math.clamp((pos.X-sv.AbsolutePosition.X)/sv.AbsoluteSize.X,0,1)
-			local y=math.clamp((pos.Y-sv.AbsolutePosition.Y)/sv.AbsoluteSize.Y,0,1)
-			sat=x val=1-y
-			setColor(Color3.fromHSV(hue,sat,val),true)
-			hex.Text=string.format("#%02X%02X%02X",math.floor(value.R*255),math.floor(value.G*255),math.floor(value.B*255))
-		end
-
-		local function updateHue(pos)
-			hue=math.clamp((pos.X-hueBar.AbsolutePosition.X)/hueBar.AbsoluteSize.X,0,1)
-			sv.BackgroundColor3=Color3.fromHSV(hue,1,1)
-			setColor(Color3.fromHSV(hue,sat,val),true)
-			hex.Text=string.format("#%02X%02X%02X",math.floor(value.R*255),math.floor(value.G*255),math.floor(value.B*255))
-		end
-
-		sv.InputBegan:Connect(function(i)
-			if i.UserInputType==Enum.UserInputType.MouseButton1 then draggingSV=true updateSV(i.Position) end
-		end)
-		hueBar.InputBegan:Connect(function(i)
-			if i.UserInputType==Enum.UserInputType.MouseButton1 then draggingHue=true updateHue(i.Position) end
-		end)
-		UserInputService.InputChanged:Connect(function(i)
-			if i.UserInputType==Enum.UserInputType.MouseMovement then
-				if draggingSV then updateSV(i.Position) end
-				if draggingHue then updateHue(i.Position) end
-			end
-		end)
-		UserInputService.InputEnded:Connect(function(i)
-			if i.UserInputType==Enum.UserInputType.MouseButton1 then draggingSV=false draggingHue=false end
-		end)
-
-		hex.FocusLost:Connect(function()
-			local s=hex.Text:gsub("#","")
-			if #s==6 then
-				local r=tonumber(s:sub(1,2),16)
-				local g=tonumber(s:sub(3,4),16)
-				local b=tonumber(s:sub(5,6),16)
-				if r and g and b then setColor(Color3.fromRGB(r,g,b),true) end
-			end
-		end)
-	end)
-
-	c.Get=function() return value end
-	c.Set=function(_,v,fire) setColor(v,fire~=false) end
-	if o.Flag then self.Window:RegisterFlag(o.Flag,c,value) end
-	return c
-end
-
-function Section:AddCollapsible(o)
-	o=o or {}
-	local open=o.DefaultOpen==true
-	local baseHeight=o.Height or 140
-	local card,c=self:_Card(o.Name or "Collapsible",o.Description,48)
-	card.ClipsDescendants=true
-
-	local arrow=button(card,open and "−" or "+",16,Theme.Muted,true)
-	arrow.AnchorPoint=Vector2.new(1,.5)
-	arrow.Position=UDim2.new(1,-42,0,24)
-	arrow.Size=UDim2.fromOffset(28,28)
-	arrow.BackgroundTransparency=0
-	arrow.BackgroundColor3=Theme.Surface3
-	corner(arrow,7)
-
-	local content=new("Frame",{
-		Visible=open,Position=UDim2.fromOffset(12,52),
-		Size=UDim2.new(1,-54,0,baseHeight-64),BackgroundTransparency=1
-	},card)
-	new("UIListLayout",{Padding=UDim.new(0,5)},content)
-
-	local function set(v)
-		open=v
-		arrow.Text=open and "−" or "+"
-		content.Visible=open
-		tween(card,.18,{Size=UDim2.new(1,0,0,open and baseHeight or 48)})
-	end
-	arrow.MouseButton1Click:Connect(function() set(not open) end)
-	if open then card.Size=UDim2.new(1,0,0,baseHeight) end
-
-	local api={Component=c,Content=content}
-	function api:AddLabel(text)
-		local x=label(content,text,10,Theme.Muted,false)
-		x.Size=UDim2.new(1,0,0,32)
-		return x
-	end
-	function api:AddButton(opts)
-		opts=opts or {}
-		local x=button(content,opts.Name or "Button",10,Theme.Text,true)
-		x.Size=UDim2.new(1,0,0,32)
-		x.BackgroundTransparency=0
-		x.BackgroundColor3=Theme.Surface3
-		corner(x,7)
-		x.MouseButton1Click:Connect(opts.Callback or function() end)
-		return x
-	end
-	function api:Set(v) set(v) end
-	function api:Get() return open end
-	return api
-end
-
-function Section:AddStatus(o)
-	o=o or {}
-	local state=o.State or "Online"
-	local colors={
-		Online=Theme.Success,
-		Warning=Theme.Warning,
-		Offline=Theme.Danger,
-		Idle=Theme.Muted
+	local c={
+		Type="Paragraph",
+		Card=card
 	}
-	local card,c=self:_Card(o.Name or "Status",o.Description,48)
-	local dot=new("Frame",{
-		AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-112,.5,0),
-		Size=UDim2.fromOffset(8,8),BackgroundColor3=o.Color or colors[state] or Theme.Muted,
-		BorderSizePixel=0
-	},card)
-	corner(dot,8)
-	local text=label(card,state,10,Theme.Muted,true)
-	text.AnchorPoint=Vector2.new(1,.5)
-	text.Position=UDim2.new(1,-42,.5,0)
-	text.Size=UDim2.fromOffset(62,24)
-	text.TextXAlignment=Enum.TextXAlignment.Right
-	c.Set=function(_,newState,color)
-		state=newState
-		text.Text=tostring(newState)
-		dot.BackgroundColor3=color or colors[newState] or Theme.Muted
+
+	function c:Set(v)
+		text.Text=tostring(v or "")
 	end
+
 	return c
 end
 
-function Section:AddImage(o)
+function Section:AddDivider(o)
 	o=o or {}
-	local height=o.Height or 180
-	local card,c=self:_Card(o.Name or "Image",nil,height)
-	local img=new("ImageLabel",{
-		Position=UDim2.fromOffset(10,34),Size=UDim2.new(1,-52,1,-44),
-		BackgroundColor3=Theme.Surface3,BorderSizePixel=0,
-		Image=normalizeIcon(o.Image or o.AssetId or ""),ScaleType=o.ScaleType or Enum.ScaleType.Crop
-	},card)
-	corner(img,8)
-	c.Set=function(_,id) img.Image=normalizeIcon(id) end
-	return c
-end
 
-function Section:AddSearchList(o)
-	o=o or {}
-	local values=o.Values or {}
-	local height=o.Height or 260
-	local card,c=self:_Card(o.Name or "Search List",nil,height)
+	local holder=New(
+		"Frame",
+		{
+			Size=UDim2.new(1,0,0,24),
+			BackgroundTransparency=1
+		},
+		self.Frame
+	)
 
-	local search=new("TextBox",{
-		Position=UDim2.fromOffset(12,34),Size=UDim2.new(1,-54,0,32),
-		BackgroundColor3=Theme.Surface3,BorderSizePixel=0,Text="",
-		PlaceholderText=o.Placeholder or "Search...",PlaceholderColor3=Theme.Muted,
-		TextColor3=Theme.Text,TextSize=10,Font=Enum.Font.Gotham,
-		ClearTextOnFocus=false,TextXAlignment=Enum.TextXAlignment.Left
-	},card)
-	corner(search,7)
-	pad(search,9,9,0,0)
+	local line=New(
+		"Frame",
+		{
+			AnchorPoint=Vector2.new(.5,.5),
+			Position=UDim2.fromScale(.5,.5),
+			Size=UDim2.new(1,-10,0,1),
+			BackgroundColor3=self.Window.Theme.Border,
+			BorderSizePixel=0
+		},
+		holder
+	)
 
-	local list=new("ScrollingFrame",{
-		Position=UDim2.fromOffset(12,74),Size=UDim2.new(1,-54,1,-86),
-		BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,
-		CanvasSize=UDim2.new()
-	},card)
-	local layout=new("UIListLayout",{Padding=UDim.new(0,4)},list)
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		list.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+6)
-	end)
-
-	local function rebuild()
-		for _,child in ipairs(list:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
-		local q=search.Text:lower()
-		for _,value in ipairs(values) do
-			local text=type(value)=="table" and (value.Name or value.Text or tostring(value)) or tostring(value)
-			if q=="" or text:lower():find(q,1,true) then
-				local row=button(list,text,10,Theme.Text,false)
-				row.Size=UDim2.new(1,0,0,30)
-				row.BackgroundTransparency=0
-				row.BackgroundColor3=Theme.Surface2
-				corner(row,6)
-				row.MouseButton1Click:Connect(function()
-					task.spawn(o.Callback or function() end,value)
-				end)
-			end
-		end
-	end
-	search:GetPropertyChangedSignal("Text"):Connect(rebuild)
-	rebuild()
-	c.Refresh=function(_,newValues) values=newValues or values rebuild() end
-	return c
-end
-
-function Section:AddConsole(o)
-	o=o or {}
-	local height=o.Height or 250
-	local card,c=self:_Card(o.Name or "Console",nil,height)
-
-	local console=new("ScrollingFrame",{
-		Position=UDim2.fromOffset(12,34),Size=UDim2.new(1,-54,1,-46),
-		BackgroundColor3=Color3.fromRGB(3,3,5),BorderSizePixel=0,
-		ScrollBarThickness=2,CanvasSize=UDim2.new()
-	},card)
-	corner(console,7)
-	pad(console,8,8,8,8)
-	local layout=new("UIListLayout",{Padding=UDim.new(0,3)},console)
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		console.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+12)
-		console.CanvasPosition=Vector2.new(0,math.max(0,layout.AbsoluteContentSize.Y-console.AbsoluteSize.Y))
-	end)
-
-	local api={Component=c}
-	function api:Log(text,color)
-		local row=label(console,tostring(text),10,color or Theme.Muted,false)
-		row.Size=UDim2.new(1,0,0,17)
-		row.Font=Enum.Font.Code
-		return row
-	end
-	function api:Info(text) return api:Log("[INFO] "..tostring(text),Theme.Muted) end
-	function api:Success(text) return api:Log("[OK] "..tostring(text),Theme.Success) end
-	function api:Warn(text) return api:Log("[WARN] "..tostring(text),Theme.Warning) end
-	function api:Error(text) return api:Log("[ERROR] "..tostring(text),Theme.Danger) end
-	function api:Clear()
-		for _,child in ipairs(console:GetChildren()) do
-			if child:IsA("TextLabel") then child:Destroy() end
-		end
-	end
-	return api
-end
-
-function Section:AddMiniGraph(o)
-	o=o or {}
-	local height=o.Height or 160
-	local card,c=self:_Card(o.Name or "Graph",o.Description,height)
-	local graph=new("Frame",{
-		Position=UDim2.fromOffset(12,38),Size=UDim2.new(1,-54,1,-50),
-		BackgroundColor3=Theme.Surface3,BorderSizePixel=0,ClipsDescendants=true
-	},card)
-	corner(graph,7)
-	local points=o.Values or {10,30,22,55,48,80,64}
-	local segments={}
-
-	local function render()
-		for _,s in ipairs(segments) do s:Destroy() end
-		table.clear(segments)
-		if #points<2 then return end
-		local maxValue=o.Max or 100
-		for i=1,#points-1 do
-			local x1=(i-1)/(#points-1)
-			local x2=i/(#points-1)
-			local y1=1-math.clamp(points[i]/maxValue,0,1)
-			local y2=1-math.clamp(points[i+1]/maxValue,0,1)
-			local a=Vector2.new(x1*graph.AbsoluteSize.X,y1*graph.AbsoluteSize.Y)
-			local b=Vector2.new(x2*graph.AbsoluteSize.X,y2*graph.AbsoluteSize.Y)
-			local d=b-a
-			local line=new("Frame",{
-				AnchorPoint=Vector2.new(0,.5),
-				Position=UDim2.fromOffset(a.X,a.Y),
-				Size=UDim2.fromOffset(d.Magnitude,2),
-				Rotation=math.deg(math.atan2(d.Y,d.X)),
-				BackgroundColor3=o.Color or Theme.Accent,
-				BorderSizePixel=0
-			},graph)
-			corner(line,3)
-			table.insert(segments,line)
-		end
-	end
-	graph:GetPropertyChangedSignal("AbsoluteSize"):Connect(render)
-	task.defer(render)
-
-	c.Set=function(_,newPoints) points=newPoints or points render() end
-	c.Push=function(_,v)
-		table.insert(points,v)
-		if #points>(o.MaxPoints or 20) then table.remove(points,1) end
-		render()
-	end
-	c.Get=function() return lucidDeepCopy(points) end
-	return c
-end
-
-function Section:AddTooltip(target,text)
-	local tip=new("TextLabel",{
-		Visible=false,BackgroundColor3=Theme.Surface,
-		BorderSizePixel=0,Text=tostring(text),TextColor3=Theme.Text,
-		TextSize=9,Font=Enum.Font.Gotham,AutomaticSize=Enum.AutomaticSize.XY,
-		ZIndex=500
-	},self.Window.Gui)
-	pad(tip,8,8,5,5)
-	corner(tip,6)
-	stroke(tip,Theme.Border,.1)
-
-	target.MouseEnter:Connect(function()
-		tip.Visible=true
-	end)
-	target.MouseLeave:Connect(function()
-		tip.Visible=false
-	end)
-	UserInputService.InputChanged:Connect(function(i)
-		if tip.Visible and i.UserInputType==Enum.UserInputType.MouseMovement then
-			tip.Position=UDim2.fromOffset(i.Position.X+14,i.Position.Y+14)
-		end
-	end)
-	return tip
-end
-
-function Section:AddContextMenu(target,items)
-	local window=self.Window
-	target.MouseButton2Click:Connect(function()
-		window:ClosePopups()
-		local mouse=UserInputService:GetMouseLocation()
-		local menu=new("Frame",{
-			Position=UDim2.fromOffset(mouse.X,mouse.Y),
-			Size=UDim2.fromOffset(180,#items*34+10),
-			BackgroundColor3=Theme.Surface,BorderSizePixel=0,ZIndex=450
-		},window.Gui)
-		corner(menu,8)
-		stroke(menu,Theme.Border,.05)
-		pad(menu,5,5,5,5)
-		new("UIListLayout",{Padding=UDim.new(0,4)},menu)
-		window:RegisterPopup(menu)
-		for _,item in ipairs(items) do
-			local b=button(menu,item.Name or "Action",10,item.Danger and Theme.Danger or Theme.Text,false)
-			b.Size=UDim2.new(1,0,0,30)
-			b.BackgroundTransparency=0
-			b.BackgroundColor3=Theme.Surface2
-			b.ZIndex=451
-			corner(b,6)
-			b.MouseButton1Click:Connect(function()
-				menu:Destroy()
-				task.spawn(item.Callback or function() end)
-			end)
-		end
-	end)
-end
-
-function Section:AddConfigManager(o)
-	o=o or {}
-	local card,c=self:_Card(o.Name or "Config Manager",o.Description,120)
-	local nameBox=new("TextBox",{
-		Position=UDim2.fromOffset(12,42),Size=UDim2.new(1,-54,0,30),
-		BackgroundColor3=Theme.Surface3,BorderSizePixel=0,
-		Text=o.Default or self.Window.ConfigName,PlaceholderText="Config name",
-		PlaceholderColor3=Theme.Muted,TextColor3=Theme.Text,TextSize=10,
-		Font=Enum.Font.Gotham,ClearTextOnFocus=false
-	},card)
-	corner(nameBox,7)
-
-	local holder=new("Frame",{
-		Position=UDim2.fromOffset(12,80),Size=UDim2.new(1,-54,0,30),
-		BackgroundTransparency=1
-	},card)
-	local layout=new("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,5)},holder)
-
-	local function make(text,callback)
-		local b=button(holder,text,9,Theme.Text,true)
-		b.Size=UDim2.fromOffset(72,28)
-		b.BackgroundTransparency=0
-		b.BackgroundColor3=Theme.Surface3
-		corner(b,6)
-		b.MouseButton1Click:Connect(callback)
-	end
-
-	make("Save",function()
-		local ok,err=self.Window:SaveConfig(nameBox.Text)
-		self.Window:Toast({Title="Config",Content=ok and "Saved successfully." or tostring(err),Color=ok and Theme.Success or Theme.Danger})
-	end)
-	make("Load",function()
-		local ok,err=self.Window:LoadConfig(nameBox.Text)
-		self.Window:Toast({Title="Config",Content=ok and "Loaded successfully." or tostring(err),Color=ok and Theme.Success or Theme.Danger})
-	end)
-	make("Delete",function()
-		self.Window:Confirm({
-			Title="Delete config",
-			Content="Delete config '"..nameBox.Text.."'?",
-			AcceptText="Delete",
-			Callback=function()
-				local ok,err=self.Window:DeleteConfig(nameBox.Text)
-				self.Window:Toast({Title="Config",Content=ok and "Deleted." or tostring(err),Color=ok and Theme.Success or Theme.Danger})
-			end
-		})
-	end)
-	return c
-end
-
-function Section:AddThemeManager(o)
-	o=o or {}
-	local names={}
-	for name,_ in pairs(LucidUI.Themes) do table.insert(names,name) end
-	table.sort(names)
-	return self:AddDropdown({
-		Name=o.Name or "Theme",
-		Description=o.Description or "Change Lucid appearance",
-		Values=names,
-		Default=self.Window.ThemeName,
-		Callback=function(value)
-			self.Window:SetTheme(value)
-			if o.Callback then task.spawn(o.Callback,value) end
-		end
-	})
-end
-
-function Section:AddNotificationTester(o)
-	o=o or {}
-	return self:AddButton({
-		Name=o.Name or "Notification Test",
-		Description=o.Description or "Show a Lucid notification",
-		ActionText="Test",
-		Callback=function()
-			self.Window:Toast({
-				Title=o.Title or "Lucid",
-				Content=o.Content or "Everything is working.",
-				Color=o.Color or Theme.Accent,
-				Duration=o.Duration or 4
-			})
-		end
-	})
-end
-
-function Section:AddSpacer(height)
-	return new("Frame",{Size=UDim2.new(1,0,0,height or 10),BackgroundTransparency=1},self.Content)
+	return {
+		Type="Divider",
+		Frame=holder,
+		Line=line
+	}
 end
 
 function Section:AddHeader(o)
-	if type(o)=="string" then o={Text=o} end
-	o=o or {}
-	local holder=new("Frame",{Size=UDim2.new(1,0,0,o.Height or 42),BackgroundTransparency=1},self.Content)
-	local text=label(holder,o.Text or "Header",o.Size or 16,o.Color or Theme.Text,true)
-	text.Size=UDim2.fromScale(1,1)
-	return text
-end
-
-function Section:AddAvatar(o)
-	o=o or {}
-	local player=o.Player or Players.LocalPlayer
-	local card,c=self:_Card(o.Name or "Profile",o.Description,74)
-	local avatar=new("ImageLabel",{
-		Position=UDim2.fromOffset(12,12),Size=UDim2.fromOffset(50,50),
-		BackgroundColor3=Theme.Surface3,BorderSizePixel=0
-	},card)
-	corner(avatar,25)
-	local display=label(card,player.DisplayName,12,Theme.Text,true)
-	display.Position=UDim2.fromOffset(74,13)
-	display.Size=UDim2.new(1,-116,0,20)
-	local username=label(card,"@"..player.Name,10,Theme.Muted,false)
-	username.Position=UDim2.fromOffset(74,34)
-	username.Size=UDim2.new(1,-116,0,18)
-	task.spawn(function()
-		local ok,img=pcall(function()
-			return Players:GetUserThumbnailAsync(player.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size100x100)
-		end)
-		if ok and avatar.Parent then avatar.Image=img end
-	end)
-	c.Set=function(_,p)
-		player=p
-		display.Text=p.DisplayName
-		username.Text="@"..p.Name
-		task.spawn(function()
-			local ok,img=pcall(function()
-				return Players:GetUserThumbnailAsync(p.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size100x100)
-			end)
-			if ok and avatar.Parent then avatar.Image=img end
-		end)
+	if type(o)=="string" then
+		o={
+			Name=o
+		}
 	end
-	return c
-end
 
-function Section:AddChips(o)
 	o=o or {}
-	local selected={}
-	local card,c=self:_Card(o.Name or "Tags",o.Description,84)
-	local holder=new("Frame",{
-		Position=UDim2.fromOffset(12,42),Size=UDim2.new(1,-54,0,32),
-		BackgroundTransparency=1
-	},card)
-	new("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,5)},holder)
-	for _,value in ipairs(o.Values or {}) do
-		local chip=button(holder,tostring(value),9,Theme.Muted,true)
-		chip.Size=UDim2.fromOffset(math.max(55,#tostring(value)*7+18),28)
-		chip.BackgroundTransparency=0
-		chip.BackgroundColor3=Theme.Surface3
-		corner(chip,14)
-		chip.MouseButton1Click:Connect(function()
-			selected[value]=not selected[value]
-			chip.TextColor3=selected[value] and Theme.Text or Theme.Muted
-			chip.BackgroundColor3=selected[value] and Theme.Accent or Theme.Surface3
-			local out={}
-			for _,v in ipairs(o.Values or {}) do if selected[v] then table.insert(out,v) end end
-			task.spawn(o.Callback or function() end,out)
-		end)
-	end
-	return c
-end
 
-function Section:AddLoadingBar(o)
-	o=o or {}
-	local card,c=self:_Card(o.Name or "Loading",o.Description,66)
-	local track=new("Frame",{
-		Position=UDim2.new(0,12,1,-17),Size=UDim2.new(1,-54,0,5),
-		BackgroundColor3=Theme.Surface3,BorderSizePixel=0
-	},card)
-	corner(track,5)
-	local fill=new("Frame",{Size=UDim2.new(0,0,1,0),BackgroundColor3=o.Color or Theme.Accent,BorderSizePixel=0},track)
-	corner(fill,5)
-	local running=false
-	c.Start=function(_,duration)
-		if running then return end
-		running=true
-		fill.Size=UDim2.new(0,0,1,0)
-		local tw=tween(fill,duration or 2,{Size=UDim2.new(1,0,1,0)})
-		tw.Completed:Connect(function()
-			running=false
-			if o.Callback then task.spawn(o.Callback) end
-		end)
-	end
-	c.Reset=function()
-		running=false
-		fill.Size=UDim2.new(0,0,1,0)
-	end
-	return c
-end
+	local holder=New(
+		"Frame",
+		{
+			Size=UDim2.new(1,0,0,34),
+			BackgroundTransparency=1
+		},
+		self.Frame
+	)
 
-function Section:AddCopyButton(o)
-	o=o or {}
-	return self:AddButton({
-		Name=o.Name or "Copy",
-		Description=o.Description,
-		ActionText=o.ActionText or "Copy",
-		Callback=function()
-			if setclipboard then
-				setclipboard(tostring(o.Text or ""))
-				self.Window:Toast({Title="Clipboard",Content="Copied.",Color=Theme.Success})
-			else
-				self.Window:Toast({Title="Clipboard",Content="Clipboard unavailable.",Color=Theme.Warning})
-			end
-			if o.Callback then task.spawn(o.Callback) end
-		end
-	})
-end
+	local title=Label(
+		holder,
+		o.Name or "Header",
+		15,
+		self.Window.Theme.Text,
+		true
+	)
+	title.Size=UDim2.fromScale(1,1)
 
-function Section:AddDangerButton(o)
-	o=o or {}
-	local component=self:AddButton(o)
-	local card=component.Card
-	for _,child in ipairs(card:GetChildren()) do
-		if child:IsA("TextButton") and child~=component.Star then
-			child.BackgroundColor3=Color3.fromRGB(48,14,20)
-			child.TextColor3=Theme.Danger
-		end
-	end
-	return component
-end
-
-function Window:CreateWatermark(text)
-	local mark=label(self.Gui,text or self.Title,10,Theme.Muted,true)
-	mark.Position=UDim2.fromOffset(12,12)
-	mark.Size=UDim2.fromOffset(220,26)
-	mark.BackgroundTransparency=.08
-	mark.BackgroundColor3=Theme.Surface
-	mark.TextXAlignment=Enum.TextXAlignment.Center
-	corner(mark,7)
-	stroke(mark,Theme.Border,.1)
 	return {
-		Set=function(_,value) mark.Text=tostring(value) end,
-		Show=function() mark.Visible=true end,
-		Hide=function() mark.Visible=false end,
-		Destroy=function() mark:Destroy() end
+		Type="Header",
+		Frame=holder,
+		Text=title
 	}
 end
 
-function Window:CreateFloatingButton(o)
+function Section:AddProgress(o)
 	o=o or {}
-	local b=button(self.Gui,o.Text or "L",o.TextSize or 14,Theme.Text,true)
-	b.AnchorPoint=Vector2.new(1,1)
-	b.Position=o.Position or UDim2.new(1,-18,1,-18)
-	b.Size=UDim2.fromOffset(o.Size or 46,o.Size or 46)
-	b.BackgroundTransparency=0
-	b.BackgroundColor3=o.Color or Theme.Surface
-	b.ZIndex=150
-	corner(b,o.Round and 50 or 12)
-	stroke(b,Theme.Border,.05)
-	b.MouseButton1Click:Connect(o.Callback or function() self:Toggle() end)
-	return b
+	local value=math.clamp(o.Default or 0,o.Min or 0,o.Max or 100)
+	local min=o.Min or 0
+	local max=o.Max or 100
+
+	local card=New(
+		"Frame",
+		{
+			Size=UDim2.new(1,0,0,68),
+			BackgroundColor3=self.Window.Theme.Card,
+			BorderSizePixel=0
+		},
+		self.Frame
+	)
+	Corner(card,8)
+
+	local title=Label(
+		card,
+		o.Name or "Progress",
+		13,
+		self.Window.Theme.Text,
+		true
+	)
+	title.Position=UDim2.fromOffset(13,7)
+	title.Size=UDim2.new(1,-80,0,20)
+
+	local amount=Label(
+		card,
+		"",
+		11,
+		self.Window.Theme.Muted,
+		true
+	)
+	amount.AnchorPoint=Vector2.new(1,0)
+	amount.Position=UDim2.new(1,-13,0,7)
+	amount.Size=UDim2.fromOffset(60,20)
+	amount.TextXAlignment=Enum.TextXAlignment.Right
+
+	local bar=New(
+		"Frame",
+		{
+			Position=UDim2.fromOffset(13,43),
+			Size=UDim2.new(1,-26,0,8),
+			BackgroundColor3=self.Window.Theme.Control,
+			BorderSizePixel=0
+		},
+		card
+	)
+	Corner(bar,8)
+
+	local fill=New(
+		"Frame",
+		{
+			Size=UDim2.fromScale(0,1),
+			BackgroundColor3=self.Window.Theme.Accent,
+			BorderSizePixel=0
+		},
+		bar
+	)
+	Corner(fill,8)
+
+	local c={
+		Type="Progress",
+		Card=card
+	}
+
+	function c:Set(v)
+		value=math.clamp(tonumber(v) or min,min,max)
+		local alpha=(value-min)/(max-min)
+		amount.Text=string.format(
+			o.Format or "%d%%",
+			value
+		)
+		Tween(
+			fill,
+			.12,
+			{
+				Size=UDim2.fromScale(alpha,1)
+			}
+		)
+	end
+
+	function c:Get()
+		return value
+	end
+
+	c:Set(value)
+	return c
 end
 
-function Window:AddCommand(name,callback,description)
-	self.CustomCommands=self.CustomCommands or {}
-	table.insert(self.CustomCommands,{Name=name,Callback=callback,Description=description or ""})
+function Window:Notify(o)
+	if type(o)=="string" then
+		o={
+			Title="Lucid",
+			Content=o
+		}
+	end
+
+	o=o or {}
+
+	if not self.NotificationHolder then
+		local holder=New(
+			"Frame",
+			{
+				Name="Notifications",
+				AnchorPoint=Vector2.new(1,1),
+				Position=UDim2.new(1,-18,1,-18),
+				Size=UDim2.fromOffset(330,420),
+				BackgroundTransparency=1,
+				ZIndex=300
+			},
+			self.Gui
+		)
+
+		New(
+			"UIListLayout",
+			{
+				VerticalAlignment=Enum.VerticalAlignment.Bottom,
+				HorizontalAlignment=Enum.HorizontalAlignment.Right,
+				Padding=UDim.new(0,8)
+			},
+			holder
+		)
+
+		self.NotificationHolder=holder
+	end
+
+	local card=New(
+		"Frame",
+		{
+			Size=UDim2.fromOffset(310,0),
+			AutomaticSize=Enum.AutomaticSize.Y,
+			BackgroundColor3=self.Theme.Panel,
+			BorderSizePixel=0,
+			ZIndex=301
+		},
+		self.NotificationHolder
+	)
+	Corner(card,10)
+	Stroke(card,self.Neon and self.Theme.Accent or self.Theme.Border,1)
+	Pad(card,12,12,10,10)
+
+	local layout=New(
+		"UIListLayout",
+		{
+			Padding=UDim.new(0,4),
+			SortOrder=Enum.SortOrder.LayoutOrder
+		},
+		card
+	)
+
+	local title=Label(
+		card,
+		o.Title or "Notification",
+		13,
+		self.Theme.Text,
+		true
+	)
+	title.Size=UDim2.new(1,0,0,20)
+	title.ZIndex=302
+
+	local content=Label(
+		card,
+		o.Content or o.Description or "",
+		11,
+		self.Theme.Muted,
+		false
+	)
+	content.AutomaticSize=Enum.AutomaticSize.Y
+	content.Size=UDim2.new(1,0,0,0)
+	content.TextWrapped=true
+	content.TextTruncate=Enum.TextTruncate.None
+	content.ZIndex=302
+
+	task.delay(o.Duration or 4,function()
+		if card and card.Parent then
+			Tween(
+				card,
+				.18,
+				{
+					BackgroundTransparency=1
+				}
+			)
+			task.wait(.2)
+			if card then
+				card:Destroy()
+			end
+		end
+	end)
+
+	return card
 end
 
-function Window:Pulse()
-	self.Main.BackgroundColor3=Theme.Surface2
-	tween(self.Main,.25,{BackgroundColor3=Theme.Background})
+function Window:SaveConfig(name)
+	if not writefile then
+		return false,"writefile unavailable"
+	end
+
+	local data={
+		Version=LucidUI.Version,
+		Flags=self.Flags
+	}
+
+	local ok,encoded=pcall(
+		function()
+			return HttpService:JSONEncode(data)
+		end
+	)
+
+	if not ok then
+		return false,encoded
+	end
+
+	local folder="LucidUI"
+	if makefolder and isfolder and not isfolder(folder) then
+		pcall(makefolder,folder)
+	end
+
+	local path=folder.."/"..tostring(name or "default")..".json"
+	local success,err=pcall(writefile,path,encoded)
+
+	return success,err
 end
 
+function Window:LoadConfig(name)
+	if not readfile then
+		return false,"readfile unavailable"
+	end
 
-LucidUI.APICatalog = {
-	Window={
-		"CreateWindow","AddTab","SelectTab","Show","Hide","Toggle","Destroy",
-		"Notify","Toast","Confirm","SetTheme","SetAccent","SaveConfig","LoadConfig",
-		"DeleteConfig","ListConfigs","GetFlag","SetFlag","GetFlags","ToggleCommandPalette",
-		"CreateWatermark","CreateFloatingButton","AddCommand","Pulse"
-	},
-	Section={
-		"AddButton","AddToggle","AddSlider","AddTextbox","AddDropdown","AddPlayerDropdown",
-		"AddParagraph","AddDivider","AddBadge","AddProgress","AddNumberbox","AddKeybind",
-		"AddButtonGroup","AddRadioGroup","AddMultiDropdown","AddColorPicker","AddCollapsible",
-		"AddStatus","AddImage","AddSearchList","AddConsole","AddMiniGraph","AddTooltip",
-		"AddContextMenu","AddConfigManager","AddThemeManager","AddNotificationTester",
-		"AddSpacer","AddHeader","AddAvatar","AddChips","AddLoadingBar","AddCopyButton",
-		"AddDangerButton"
-	},
-	Tab={"AddSection","AddSubTabs"}
+	local path="LucidUI/"..tostring(name or "default")..".json"
+	local ok,raw=pcall(readfile,path)
+
+	if not ok then
+		return false,raw
+	end
+
+	local decoded
+	ok,decoded=pcall(
+		function()
+			return HttpService:JSONDecode(raw)
+		end
+	)
+
+	if not ok then
+		return false,decoded
+	end
+
+	for key,value in pairs(decoded.Flags or {}) do
+		self.Flags[key]=value
+	end
+
+	return true,decoded
+end
+
+function Window:GetFlag(name)
+	return self.Flags[name]
+end
+
+function Window:SetFlag(name,value)
+	self.Flags[name]=value
+end
+
+function Window:SetBackgroundTransparency(v)
+	self.Tint.BackgroundTransparency=math.clamp(v,0,1)
+end
+
+function Window:SetSize(size)
+	self.Size=size
+	Tween(
+		self.Main,
+		.16,
+		{
+			Size=size
+		}
+	)
+end
+
+function Window:Center()
+	Tween(
+		self.Main,
+		.16,
+		{
+			Position=UDim2.fromScale(.5,.5)
+		}
+	)
+end
+
+function Window:SetTitle(text)
+	self.Title=tostring(text)
+end
+
+function Window:SetToggleKey(key)
+	self.ToggleKey=key
+end
+
+function Window:Destroy()
+	for _,c in ipairs(self.Connections) do
+		pcall(function()
+			c:Disconnect()
+		end)
+	end
+
+	if self.Gui then
+		pcall(function()
+			self.Gui:Destroy()
+		end)
+	end
+
+	if GLOBAL_ENV[REGISTRY_KEY] and GLOBAL_ENV[REGISTRY_KEY].Gui==self.Gui then
+		GLOBAL_ENV[REGISTRY_KEY]=nil
+	end
+end
+
+LucidUI.Components = {}
+LucidUI.Components["Button"] = {
+	Name = "Button",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["Toggle"] = {
+	Name = "Toggle",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["Slider"] = {
+	Name = "Slider",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["Textbox"] = {
+	Name = "Textbox",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["Dropdown"] = {
+	Name = "Dropdown",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["RadioGroup"] = {
+	Name = "RadioGroup",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["ButtonGroup"] = {
+	Name = "ButtonGroup",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["Keybind"] = {
+	Name = "Keybind",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["Numberbox"] = {
+	Name = "Numberbox",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["Paragraph"] = {
+	Name = "Paragraph",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["Divider"] = {
+	Name = "Divider",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["Header"] = {
+	Name = "Header",
+	Available = true,
+	Version = "6.0.0"
+}
+LucidUI.Components["Progress"] = {
+	Name = "Progress",
+	Available = true,
+	Version = "6.0.0"
 }
 
-LucidUI.Version="0.4.5-layout"
+function Window:GetRuntimeValue1(fallback)
+	local value = self.Flags["RuntimeValue1"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue1(value)
+	self.Flags["RuntimeValue1"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue2(fallback)
+	local value = self.Flags["RuntimeValue2"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue2(value)
+	self.Flags["RuntimeValue2"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue3(fallback)
+	local value = self.Flags["RuntimeValue3"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue3(value)
+	self.Flags["RuntimeValue3"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue4(fallback)
+	local value = self.Flags["RuntimeValue4"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue4(value)
+	self.Flags["RuntimeValue4"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue5(fallback)
+	local value = self.Flags["RuntimeValue5"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue5(value)
+	self.Flags["RuntimeValue5"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue6(fallback)
+	local value = self.Flags["RuntimeValue6"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue6(value)
+	self.Flags["RuntimeValue6"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue7(fallback)
+	local value = self.Flags["RuntimeValue7"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue7(value)
+	self.Flags["RuntimeValue7"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue8(fallback)
+	local value = self.Flags["RuntimeValue8"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue8(value)
+	self.Flags["RuntimeValue8"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue9(fallback)
+	local value = self.Flags["RuntimeValue9"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue9(value)
+	self.Flags["RuntimeValue9"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue10(fallback)
+	local value = self.Flags["RuntimeValue10"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue10(value)
+	self.Flags["RuntimeValue10"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue11(fallback)
+	local value = self.Flags["RuntimeValue11"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue11(value)
+	self.Flags["RuntimeValue11"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue12(fallback)
+	local value = self.Flags["RuntimeValue12"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue12(value)
+	self.Flags["RuntimeValue12"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue13(fallback)
+	local value = self.Flags["RuntimeValue13"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue13(value)
+	self.Flags["RuntimeValue13"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue14(fallback)
+	local value = self.Flags["RuntimeValue14"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue14(value)
+	self.Flags["RuntimeValue14"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue15(fallback)
+	local value = self.Flags["RuntimeValue15"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue15(value)
+	self.Flags["RuntimeValue15"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue16(fallback)
+	local value = self.Flags["RuntimeValue16"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue16(value)
+	self.Flags["RuntimeValue16"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue17(fallback)
+	local value = self.Flags["RuntimeValue17"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue17(value)
+	self.Flags["RuntimeValue17"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue18(fallback)
+	local value = self.Flags["RuntimeValue18"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue18(value)
+	self.Flags["RuntimeValue18"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue19(fallback)
+	local value = self.Flags["RuntimeValue19"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue19(value)
+	self.Flags["RuntimeValue19"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue20(fallback)
+	local value = self.Flags["RuntimeValue20"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue20(value)
+	self.Flags["RuntimeValue20"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue21(fallback)
+	local value = self.Flags["RuntimeValue21"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue21(value)
+	self.Flags["RuntimeValue21"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue22(fallback)
+	local value = self.Flags["RuntimeValue22"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue22(value)
+	self.Flags["RuntimeValue22"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue23(fallback)
+	local value = self.Flags["RuntimeValue23"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue23(value)
+	self.Flags["RuntimeValue23"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue24(fallback)
+	local value = self.Flags["RuntimeValue24"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue24(value)
+	self.Flags["RuntimeValue24"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue25(fallback)
+	local value = self.Flags["RuntimeValue25"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue25(value)
+	self.Flags["RuntimeValue25"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue26(fallback)
+	local value = self.Flags["RuntimeValue26"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue26(value)
+	self.Flags["RuntimeValue26"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue27(fallback)
+	local value = self.Flags["RuntimeValue27"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue27(value)
+	self.Flags["RuntimeValue27"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue28(fallback)
+	local value = self.Flags["RuntimeValue28"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue28(value)
+	self.Flags["RuntimeValue28"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue29(fallback)
+	local value = self.Flags["RuntimeValue29"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue29(value)
+	self.Flags["RuntimeValue29"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue30(fallback)
+	local value = self.Flags["RuntimeValue30"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue30(value)
+	self.Flags["RuntimeValue30"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue31(fallback)
+	local value = self.Flags["RuntimeValue31"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue31(value)
+	self.Flags["RuntimeValue31"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue32(fallback)
+	local value = self.Flags["RuntimeValue32"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue32(value)
+	self.Flags["RuntimeValue32"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue33(fallback)
+	local value = self.Flags["RuntimeValue33"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue33(value)
+	self.Flags["RuntimeValue33"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue34(fallback)
+	local value = self.Flags["RuntimeValue34"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue34(value)
+	self.Flags["RuntimeValue34"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue35(fallback)
+	local value = self.Flags["RuntimeValue35"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue35(value)
+	self.Flags["RuntimeValue35"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue36(fallback)
+	local value = self.Flags["RuntimeValue36"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue36(value)
+	self.Flags["RuntimeValue36"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue37(fallback)
+	local value = self.Flags["RuntimeValue37"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue37(value)
+	self.Flags["RuntimeValue37"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue38(fallback)
+	local value = self.Flags["RuntimeValue38"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue38(value)
+	self.Flags["RuntimeValue38"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue39(fallback)
+	local value = self.Flags["RuntimeValue39"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue39(value)
+	self.Flags["RuntimeValue39"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue40(fallback)
+	local value = self.Flags["RuntimeValue40"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue40(value)
+	self.Flags["RuntimeValue40"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue41(fallback)
+	local value = self.Flags["RuntimeValue41"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue41(value)
+	self.Flags["RuntimeValue41"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue42(fallback)
+	local value = self.Flags["RuntimeValue42"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue42(value)
+	self.Flags["RuntimeValue42"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue43(fallback)
+	local value = self.Flags["RuntimeValue43"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue43(value)
+	self.Flags["RuntimeValue43"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue44(fallback)
+	local value = self.Flags["RuntimeValue44"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue44(value)
+	self.Flags["RuntimeValue44"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue45(fallback)
+	local value = self.Flags["RuntimeValue45"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue45(value)
+	self.Flags["RuntimeValue45"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue46(fallback)
+	local value = self.Flags["RuntimeValue46"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue46(value)
+	self.Flags["RuntimeValue46"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue47(fallback)
+	local value = self.Flags["RuntimeValue47"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue47(value)
+	self.Flags["RuntimeValue47"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue48(fallback)
+	local value = self.Flags["RuntimeValue48"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue48(value)
+	self.Flags["RuntimeValue48"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue49(fallback)
+	local value = self.Flags["RuntimeValue49"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue49(value)
+	self.Flags["RuntimeValue49"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue50(fallback)
+	local value = self.Flags["RuntimeValue50"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue50(value)
+	self.Flags["RuntimeValue50"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue51(fallback)
+	local value = self.Flags["RuntimeValue51"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue51(value)
+	self.Flags["RuntimeValue51"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue52(fallback)
+	local value = self.Flags["RuntimeValue52"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue52(value)
+	self.Flags["RuntimeValue52"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue53(fallback)
+	local value = self.Flags["RuntimeValue53"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue53(value)
+	self.Flags["RuntimeValue53"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue54(fallback)
+	local value = self.Flags["RuntimeValue54"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue54(value)
+	self.Flags["RuntimeValue54"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue55(fallback)
+	local value = self.Flags["RuntimeValue55"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue55(value)
+	self.Flags["RuntimeValue55"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue56(fallback)
+	local value = self.Flags["RuntimeValue56"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue56(value)
+	self.Flags["RuntimeValue56"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue57(fallback)
+	local value = self.Flags["RuntimeValue57"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue57(value)
+	self.Flags["RuntimeValue57"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue58(fallback)
+	local value = self.Flags["RuntimeValue58"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue58(value)
+	self.Flags["RuntimeValue58"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue59(fallback)
+	local value = self.Flags["RuntimeValue59"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue59(value)
+	self.Flags["RuntimeValue59"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue60(fallback)
+	local value = self.Flags["RuntimeValue60"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue60(value)
+	self.Flags["RuntimeValue60"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue61(fallback)
+	local value = self.Flags["RuntimeValue61"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue61(value)
+	self.Flags["RuntimeValue61"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue62(fallback)
+	local value = self.Flags["RuntimeValue62"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue62(value)
+	self.Flags["RuntimeValue62"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue63(fallback)
+	local value = self.Flags["RuntimeValue63"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue63(value)
+	self.Flags["RuntimeValue63"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue64(fallback)
+	local value = self.Flags["RuntimeValue64"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue64(value)
+	self.Flags["RuntimeValue64"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue65(fallback)
+	local value = self.Flags["RuntimeValue65"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue65(value)
+	self.Flags["RuntimeValue65"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue66(fallback)
+	local value = self.Flags["RuntimeValue66"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue66(value)
+	self.Flags["RuntimeValue66"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue67(fallback)
+	local value = self.Flags["RuntimeValue67"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue67(value)
+	self.Flags["RuntimeValue67"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue68(fallback)
+	local value = self.Flags["RuntimeValue68"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue68(value)
+	self.Flags["RuntimeValue68"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue69(fallback)
+	local value = self.Flags["RuntimeValue69"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue69(value)
+	self.Flags["RuntimeValue69"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue70(fallback)
+	local value = self.Flags["RuntimeValue70"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue70(value)
+	self.Flags["RuntimeValue70"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue71(fallback)
+	local value = self.Flags["RuntimeValue71"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue71(value)
+	self.Flags["RuntimeValue71"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue72(fallback)
+	local value = self.Flags["RuntimeValue72"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue72(value)
+	self.Flags["RuntimeValue72"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue73(fallback)
+	local value = self.Flags["RuntimeValue73"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue73(value)
+	self.Flags["RuntimeValue73"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue74(fallback)
+	local value = self.Flags["RuntimeValue74"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue74(value)
+	self.Flags["RuntimeValue74"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue75(fallback)
+	local value = self.Flags["RuntimeValue75"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue75(value)
+	self.Flags["RuntimeValue75"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue76(fallback)
+	local value = self.Flags["RuntimeValue76"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue76(value)
+	self.Flags["RuntimeValue76"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue77(fallback)
+	local value = self.Flags["RuntimeValue77"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue77(value)
+	self.Flags["RuntimeValue77"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue78(fallback)
+	local value = self.Flags["RuntimeValue78"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue78(value)
+	self.Flags["RuntimeValue78"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue79(fallback)
+	local value = self.Flags["RuntimeValue79"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue79(value)
+	self.Flags["RuntimeValue79"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue80(fallback)
+	local value = self.Flags["RuntimeValue80"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue80(value)
+	self.Flags["RuntimeValue80"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue81(fallback)
+	local value = self.Flags["RuntimeValue81"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue81(value)
+	self.Flags["RuntimeValue81"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue82(fallback)
+	local value = self.Flags["RuntimeValue82"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue82(value)
+	self.Flags["RuntimeValue82"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue83(fallback)
+	local value = self.Flags["RuntimeValue83"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue83(value)
+	self.Flags["RuntimeValue83"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue84(fallback)
+	local value = self.Flags["RuntimeValue84"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue84(value)
+	self.Flags["RuntimeValue84"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue85(fallback)
+	local value = self.Flags["RuntimeValue85"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue85(value)
+	self.Flags["RuntimeValue85"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue86(fallback)
+	local value = self.Flags["RuntimeValue86"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue86(value)
+	self.Flags["RuntimeValue86"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue87(fallback)
+	local value = self.Flags["RuntimeValue87"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue87(value)
+	self.Flags["RuntimeValue87"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue88(fallback)
+	local value = self.Flags["RuntimeValue88"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue88(value)
+	self.Flags["RuntimeValue88"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue89(fallback)
+	local value = self.Flags["RuntimeValue89"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue89(value)
+	self.Flags["RuntimeValue89"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue90(fallback)
+	local value = self.Flags["RuntimeValue90"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue90(value)
+	self.Flags["RuntimeValue90"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue91(fallback)
+	local value = self.Flags["RuntimeValue91"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue91(value)
+	self.Flags["RuntimeValue91"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue92(fallback)
+	local value = self.Flags["RuntimeValue92"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue92(value)
+	self.Flags["RuntimeValue92"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue93(fallback)
+	local value = self.Flags["RuntimeValue93"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue93(value)
+	self.Flags["RuntimeValue93"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue94(fallback)
+	local value = self.Flags["RuntimeValue94"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue94(value)
+	self.Flags["RuntimeValue94"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue95(fallback)
+	local value = self.Flags["RuntimeValue95"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue95(value)
+	self.Flags["RuntimeValue95"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue96(fallback)
+	local value = self.Flags["RuntimeValue96"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue96(value)
+	self.Flags["RuntimeValue96"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue97(fallback)
+	local value = self.Flags["RuntimeValue97"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue97(value)
+	self.Flags["RuntimeValue97"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue98(fallback)
+	local value = self.Flags["RuntimeValue98"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue98(value)
+	self.Flags["RuntimeValue98"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue99(fallback)
+	local value = self.Flags["RuntimeValue99"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue99(value)
+	self.Flags["RuntimeValue99"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue100(fallback)
+	local value = self.Flags["RuntimeValue100"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue100(value)
+	self.Flags["RuntimeValue100"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue101(fallback)
+	local value = self.Flags["RuntimeValue101"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue101(value)
+	self.Flags["RuntimeValue101"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue102(fallback)
+	local value = self.Flags["RuntimeValue102"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue102(value)
+	self.Flags["RuntimeValue102"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue103(fallback)
+	local value = self.Flags["RuntimeValue103"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue103(value)
+	self.Flags["RuntimeValue103"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue104(fallback)
+	local value = self.Flags["RuntimeValue104"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue104(value)
+	self.Flags["RuntimeValue104"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue105(fallback)
+	local value = self.Flags["RuntimeValue105"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue105(value)
+	self.Flags["RuntimeValue105"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue106(fallback)
+	local value = self.Flags["RuntimeValue106"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue106(value)
+	self.Flags["RuntimeValue106"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue107(fallback)
+	local value = self.Flags["RuntimeValue107"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue107(value)
+	self.Flags["RuntimeValue107"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue108(fallback)
+	local value = self.Flags["RuntimeValue108"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue108(value)
+	self.Flags["RuntimeValue108"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue109(fallback)
+	local value = self.Flags["RuntimeValue109"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue109(value)
+	self.Flags["RuntimeValue109"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue110(fallback)
+	local value = self.Flags["RuntimeValue110"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue110(value)
+	self.Flags["RuntimeValue110"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue111(fallback)
+	local value = self.Flags["RuntimeValue111"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue111(value)
+	self.Flags["RuntimeValue111"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue112(fallback)
+	local value = self.Flags["RuntimeValue112"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue112(value)
+	self.Flags["RuntimeValue112"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue113(fallback)
+	local value = self.Flags["RuntimeValue113"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue113(value)
+	self.Flags["RuntimeValue113"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue114(fallback)
+	local value = self.Flags["RuntimeValue114"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue114(value)
+	self.Flags["RuntimeValue114"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue115(fallback)
+	local value = self.Flags["RuntimeValue115"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue115(value)
+	self.Flags["RuntimeValue115"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue116(fallback)
+	local value = self.Flags["RuntimeValue116"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue116(value)
+	self.Flags["RuntimeValue116"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue117(fallback)
+	local value = self.Flags["RuntimeValue117"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue117(value)
+	self.Flags["RuntimeValue117"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue118(fallback)
+	local value = self.Flags["RuntimeValue118"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue118(value)
+	self.Flags["RuntimeValue118"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue119(fallback)
+	local value = self.Flags["RuntimeValue119"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue119(value)
+	self.Flags["RuntimeValue119"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue120(fallback)
+	local value = self.Flags["RuntimeValue120"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue120(value)
+	self.Flags["RuntimeValue120"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue121(fallback)
+	local value = self.Flags["RuntimeValue121"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue121(value)
+	self.Flags["RuntimeValue121"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue122(fallback)
+	local value = self.Flags["RuntimeValue122"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue122(value)
+	self.Flags["RuntimeValue122"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue123(fallback)
+	local value = self.Flags["RuntimeValue123"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue123(value)
+	self.Flags["RuntimeValue123"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue124(fallback)
+	local value = self.Flags["RuntimeValue124"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue124(value)
+	self.Flags["RuntimeValue124"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue125(fallback)
+	local value = self.Flags["RuntimeValue125"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue125(value)
+	self.Flags["RuntimeValue125"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue126(fallback)
+	local value = self.Flags["RuntimeValue126"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue126(value)
+	self.Flags["RuntimeValue126"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue127(fallback)
+	local value = self.Flags["RuntimeValue127"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue127(value)
+	self.Flags["RuntimeValue127"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue128(fallback)
+	local value = self.Flags["RuntimeValue128"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue128(value)
+	self.Flags["RuntimeValue128"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue129(fallback)
+	local value = self.Flags["RuntimeValue129"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue129(value)
+	self.Flags["RuntimeValue129"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue130(fallback)
+	local value = self.Flags["RuntimeValue130"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue130(value)
+	self.Flags["RuntimeValue130"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue131(fallback)
+	local value = self.Flags["RuntimeValue131"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue131(value)
+	self.Flags["RuntimeValue131"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue132(fallback)
+	local value = self.Flags["RuntimeValue132"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue132(value)
+	self.Flags["RuntimeValue132"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue133(fallback)
+	local value = self.Flags["RuntimeValue133"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue133(value)
+	self.Flags["RuntimeValue133"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue134(fallback)
+	local value = self.Flags["RuntimeValue134"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue134(value)
+	self.Flags["RuntimeValue134"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue135(fallback)
+	local value = self.Flags["RuntimeValue135"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue135(value)
+	self.Flags["RuntimeValue135"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue136(fallback)
+	local value = self.Flags["RuntimeValue136"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue136(value)
+	self.Flags["RuntimeValue136"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue137(fallback)
+	local value = self.Flags["RuntimeValue137"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue137(value)
+	self.Flags["RuntimeValue137"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue138(fallback)
+	local value = self.Flags["RuntimeValue138"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue138(value)
+	self.Flags["RuntimeValue138"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue139(fallback)
+	local value = self.Flags["RuntimeValue139"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue139(value)
+	self.Flags["RuntimeValue139"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue140(fallback)
+	local value = self.Flags["RuntimeValue140"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue140(value)
+	self.Flags["RuntimeValue140"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue141(fallback)
+	local value = self.Flags["RuntimeValue141"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue141(value)
+	self.Flags["RuntimeValue141"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue142(fallback)
+	local value = self.Flags["RuntimeValue142"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue142(value)
+	self.Flags["RuntimeValue142"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue143(fallback)
+	local value = self.Flags["RuntimeValue143"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue143(value)
+	self.Flags["RuntimeValue143"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue144(fallback)
+	local value = self.Flags["RuntimeValue144"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue144(value)
+	self.Flags["RuntimeValue144"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue145(fallback)
+	local value = self.Flags["RuntimeValue145"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue145(value)
+	self.Flags["RuntimeValue145"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue146(fallback)
+	local value = self.Flags["RuntimeValue146"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue146(value)
+	self.Flags["RuntimeValue146"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue147(fallback)
+	local value = self.Flags["RuntimeValue147"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue147(value)
+	self.Flags["RuntimeValue147"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue148(fallback)
+	local value = self.Flags["RuntimeValue148"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue148(value)
+	self.Flags["RuntimeValue148"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue149(fallback)
+	local value = self.Flags["RuntimeValue149"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue149(value)
+	self.Flags["RuntimeValue149"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue150(fallback)
+	local value = self.Flags["RuntimeValue150"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue150(value)
+	self.Flags["RuntimeValue150"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue151(fallback)
+	local value = self.Flags["RuntimeValue151"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue151(value)
+	self.Flags["RuntimeValue151"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue152(fallback)
+	local value = self.Flags["RuntimeValue152"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue152(value)
+	self.Flags["RuntimeValue152"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue153(fallback)
+	local value = self.Flags["RuntimeValue153"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue153(value)
+	self.Flags["RuntimeValue153"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue154(fallback)
+	local value = self.Flags["RuntimeValue154"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue154(value)
+	self.Flags["RuntimeValue154"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue155(fallback)
+	local value = self.Flags["RuntimeValue155"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue155(value)
+	self.Flags["RuntimeValue155"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue156(fallback)
+	local value = self.Flags["RuntimeValue156"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue156(value)
+	self.Flags["RuntimeValue156"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue157(fallback)
+	local value = self.Flags["RuntimeValue157"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue157(value)
+	self.Flags["RuntimeValue157"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue158(fallback)
+	local value = self.Flags["RuntimeValue158"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue158(value)
+	self.Flags["RuntimeValue158"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue159(fallback)
+	local value = self.Flags["RuntimeValue159"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue159(value)
+	self.Flags["RuntimeValue159"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue160(fallback)
+	local value = self.Flags["RuntimeValue160"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue160(value)
+	self.Flags["RuntimeValue160"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue161(fallback)
+	local value = self.Flags["RuntimeValue161"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue161(value)
+	self.Flags["RuntimeValue161"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue162(fallback)
+	local value = self.Flags["RuntimeValue162"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue162(value)
+	self.Flags["RuntimeValue162"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue163(fallback)
+	local value = self.Flags["RuntimeValue163"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue163(value)
+	self.Flags["RuntimeValue163"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue164(fallback)
+	local value = self.Flags["RuntimeValue164"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue164(value)
+	self.Flags["RuntimeValue164"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue165(fallback)
+	local value = self.Flags["RuntimeValue165"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue165(value)
+	self.Flags["RuntimeValue165"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue166(fallback)
+	local value = self.Flags["RuntimeValue166"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue166(value)
+	self.Flags["RuntimeValue166"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue167(fallback)
+	local value = self.Flags["RuntimeValue167"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue167(value)
+	self.Flags["RuntimeValue167"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue168(fallback)
+	local value = self.Flags["RuntimeValue168"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue168(value)
+	self.Flags["RuntimeValue168"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue169(fallback)
+	local value = self.Flags["RuntimeValue169"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue169(value)
+	self.Flags["RuntimeValue169"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue170(fallback)
+	local value = self.Flags["RuntimeValue170"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue170(value)
+	self.Flags["RuntimeValue170"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue171(fallback)
+	local value = self.Flags["RuntimeValue171"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue171(value)
+	self.Flags["RuntimeValue171"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue172(fallback)
+	local value = self.Flags["RuntimeValue172"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue172(value)
+	self.Flags["RuntimeValue172"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue173(fallback)
+	local value = self.Flags["RuntimeValue173"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue173(value)
+	self.Flags["RuntimeValue173"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue174(fallback)
+	local value = self.Flags["RuntimeValue174"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue174(value)
+	self.Flags["RuntimeValue174"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue175(fallback)
+	local value = self.Flags["RuntimeValue175"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue175(value)
+	self.Flags["RuntimeValue175"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue176(fallback)
+	local value = self.Flags["RuntimeValue176"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue176(value)
+	self.Flags["RuntimeValue176"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue177(fallback)
+	local value = self.Flags["RuntimeValue177"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue177(value)
+	self.Flags["RuntimeValue177"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue178(fallback)
+	local value = self.Flags["RuntimeValue178"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue178(value)
+	self.Flags["RuntimeValue178"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue179(fallback)
+	local value = self.Flags["RuntimeValue179"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue179(value)
+	self.Flags["RuntimeValue179"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue180(fallback)
+	local value = self.Flags["RuntimeValue180"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue180(value)
+	self.Flags["RuntimeValue180"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue181(fallback)
+	local value = self.Flags["RuntimeValue181"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue181(value)
+	self.Flags["RuntimeValue181"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue182(fallback)
+	local value = self.Flags["RuntimeValue182"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue182(value)
+	self.Flags["RuntimeValue182"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue183(fallback)
+	local value = self.Flags["RuntimeValue183"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue183(value)
+	self.Flags["RuntimeValue183"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue184(fallback)
+	local value = self.Flags["RuntimeValue184"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue184(value)
+	self.Flags["RuntimeValue184"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue185(fallback)
+	local value = self.Flags["RuntimeValue185"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue185(value)
+	self.Flags["RuntimeValue185"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue186(fallback)
+	local value = self.Flags["RuntimeValue186"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue186(value)
+	self.Flags["RuntimeValue186"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue187(fallback)
+	local value = self.Flags["RuntimeValue187"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue187(value)
+	self.Flags["RuntimeValue187"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue188(fallback)
+	local value = self.Flags["RuntimeValue188"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue188(value)
+	self.Flags["RuntimeValue188"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue189(fallback)
+	local value = self.Flags["RuntimeValue189"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue189(value)
+	self.Flags["RuntimeValue189"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue190(fallback)
+	local value = self.Flags["RuntimeValue190"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue190(value)
+	self.Flags["RuntimeValue190"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue191(fallback)
+	local value = self.Flags["RuntimeValue191"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue191(value)
+	self.Flags["RuntimeValue191"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue192(fallback)
+	local value = self.Flags["RuntimeValue192"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue192(value)
+	self.Flags["RuntimeValue192"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue193(fallback)
+	local value = self.Flags["RuntimeValue193"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue193(value)
+	self.Flags["RuntimeValue193"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue194(fallback)
+	local value = self.Flags["RuntimeValue194"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue194(value)
+	self.Flags["RuntimeValue194"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue195(fallback)
+	local value = self.Flags["RuntimeValue195"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue195(value)
+	self.Flags["RuntimeValue195"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue196(fallback)
+	local value = self.Flags["RuntimeValue196"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue196(value)
+	self.Flags["RuntimeValue196"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue197(fallback)
+	local value = self.Flags["RuntimeValue197"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue197(value)
+	self.Flags["RuntimeValue197"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue198(fallback)
+	local value = self.Flags["RuntimeValue198"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue198(value)
+	self.Flags["RuntimeValue198"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue199(fallback)
+	local value = self.Flags["RuntimeValue199"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue199(value)
+	self.Flags["RuntimeValue199"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue200(fallback)
+	local value = self.Flags["RuntimeValue200"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue200(value)
+	self.Flags["RuntimeValue200"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue201(fallback)
+	local value = self.Flags["RuntimeValue201"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue201(value)
+	self.Flags["RuntimeValue201"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue202(fallback)
+	local value = self.Flags["RuntimeValue202"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue202(value)
+	self.Flags["RuntimeValue202"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue203(fallback)
+	local value = self.Flags["RuntimeValue203"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue203(value)
+	self.Flags["RuntimeValue203"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue204(fallback)
+	local value = self.Flags["RuntimeValue204"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue204(value)
+	self.Flags["RuntimeValue204"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue205(fallback)
+	local value = self.Flags["RuntimeValue205"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue205(value)
+	self.Flags["RuntimeValue205"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue206(fallback)
+	local value = self.Flags["RuntimeValue206"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue206(value)
+	self.Flags["RuntimeValue206"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue207(fallback)
+	local value = self.Flags["RuntimeValue207"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue207(value)
+	self.Flags["RuntimeValue207"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue208(fallback)
+	local value = self.Flags["RuntimeValue208"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue208(value)
+	self.Flags["RuntimeValue208"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue209(fallback)
+	local value = self.Flags["RuntimeValue209"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue209(value)
+	self.Flags["RuntimeValue209"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue210(fallback)
+	local value = self.Flags["RuntimeValue210"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue210(value)
+	self.Flags["RuntimeValue210"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue211(fallback)
+	local value = self.Flags["RuntimeValue211"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue211(value)
+	self.Flags["RuntimeValue211"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue212(fallback)
+	local value = self.Flags["RuntimeValue212"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue212(value)
+	self.Flags["RuntimeValue212"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue213(fallback)
+	local value = self.Flags["RuntimeValue213"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue213(value)
+	self.Flags["RuntimeValue213"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue214(fallback)
+	local value = self.Flags["RuntimeValue214"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue214(value)
+	self.Flags["RuntimeValue214"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue215(fallback)
+	local value = self.Flags["RuntimeValue215"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue215(value)
+	self.Flags["RuntimeValue215"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue216(fallback)
+	local value = self.Flags["RuntimeValue216"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue216(value)
+	self.Flags["RuntimeValue216"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue217(fallback)
+	local value = self.Flags["RuntimeValue217"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue217(value)
+	self.Flags["RuntimeValue217"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue218(fallback)
+	local value = self.Flags["RuntimeValue218"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue218(value)
+	self.Flags["RuntimeValue218"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue219(fallback)
+	local value = self.Flags["RuntimeValue219"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue219(value)
+	self.Flags["RuntimeValue219"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue220(fallback)
+	local value = self.Flags["RuntimeValue220"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue220(value)
+	self.Flags["RuntimeValue220"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue221(fallback)
+	local value = self.Flags["RuntimeValue221"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue221(value)
+	self.Flags["RuntimeValue221"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue222(fallback)
+	local value = self.Flags["RuntimeValue222"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue222(value)
+	self.Flags["RuntimeValue222"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue223(fallback)
+	local value = self.Flags["RuntimeValue223"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue223(value)
+	self.Flags["RuntimeValue223"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue224(fallback)
+	local value = self.Flags["RuntimeValue224"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue224(value)
+	self.Flags["RuntimeValue224"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue225(fallback)
+	local value = self.Flags["RuntimeValue225"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue225(value)
+	self.Flags["RuntimeValue225"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue226(fallback)
+	local value = self.Flags["RuntimeValue226"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue226(value)
+	self.Flags["RuntimeValue226"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue227(fallback)
+	local value = self.Flags["RuntimeValue227"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue227(value)
+	self.Flags["RuntimeValue227"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue228(fallback)
+	local value = self.Flags["RuntimeValue228"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue228(value)
+	self.Flags["RuntimeValue228"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue229(fallback)
+	local value = self.Flags["RuntimeValue229"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue229(value)
+	self.Flags["RuntimeValue229"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue230(fallback)
+	local value = self.Flags["RuntimeValue230"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue230(value)
+	self.Flags["RuntimeValue230"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue231(fallback)
+	local value = self.Flags["RuntimeValue231"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue231(value)
+	self.Flags["RuntimeValue231"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue232(fallback)
+	local value = self.Flags["RuntimeValue232"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue232(value)
+	self.Flags["RuntimeValue232"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue233(fallback)
+	local value = self.Flags["RuntimeValue233"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue233(value)
+	self.Flags["RuntimeValue233"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue234(fallback)
+	local value = self.Flags["RuntimeValue234"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue234(value)
+	self.Flags["RuntimeValue234"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue235(fallback)
+	local value = self.Flags["RuntimeValue235"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue235(value)
+	self.Flags["RuntimeValue235"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue236(fallback)
+	local value = self.Flags["RuntimeValue236"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue236(value)
+	self.Flags["RuntimeValue236"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue237(fallback)
+	local value = self.Flags["RuntimeValue237"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue237(value)
+	self.Flags["RuntimeValue237"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue238(fallback)
+	local value = self.Flags["RuntimeValue238"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue238(value)
+	self.Flags["RuntimeValue238"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue239(fallback)
+	local value = self.Flags["RuntimeValue239"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue239(value)
+	self.Flags["RuntimeValue239"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue240(fallback)
+	local value = self.Flags["RuntimeValue240"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue240(value)
+	self.Flags["RuntimeValue240"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue241(fallback)
+	local value = self.Flags["RuntimeValue241"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue241(value)
+	self.Flags["RuntimeValue241"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue242(fallback)
+	local value = self.Flags["RuntimeValue242"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue242(value)
+	self.Flags["RuntimeValue242"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue243(fallback)
+	local value = self.Flags["RuntimeValue243"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue243(value)
+	self.Flags["RuntimeValue243"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue244(fallback)
+	local value = self.Flags["RuntimeValue244"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue244(value)
+	self.Flags["RuntimeValue244"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue245(fallback)
+	local value = self.Flags["RuntimeValue245"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue245(value)
+	self.Flags["RuntimeValue245"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue246(fallback)
+	local value = self.Flags["RuntimeValue246"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue246(value)
+	self.Flags["RuntimeValue246"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue247(fallback)
+	local value = self.Flags["RuntimeValue247"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue247(value)
+	self.Flags["RuntimeValue247"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue248(fallback)
+	local value = self.Flags["RuntimeValue248"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue248(value)
+	self.Flags["RuntimeValue248"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue249(fallback)
+	local value = self.Flags["RuntimeValue249"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue249(value)
+	self.Flags["RuntimeValue249"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue250(fallback)
+	local value = self.Flags["RuntimeValue250"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue250(value)
+	self.Flags["RuntimeValue250"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue251(fallback)
+	local value = self.Flags["RuntimeValue251"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue251(value)
+	self.Flags["RuntimeValue251"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue252(fallback)
+	local value = self.Flags["RuntimeValue252"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue252(value)
+	self.Flags["RuntimeValue252"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue253(fallback)
+	local value = self.Flags["RuntimeValue253"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue253(value)
+	self.Flags["RuntimeValue253"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue254(fallback)
+	local value = self.Flags["RuntimeValue254"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue254(value)
+	self.Flags["RuntimeValue254"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue255(fallback)
+	local value = self.Flags["RuntimeValue255"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue255(value)
+	self.Flags["RuntimeValue255"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue256(fallback)
+	local value = self.Flags["RuntimeValue256"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue256(value)
+	self.Flags["RuntimeValue256"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue257(fallback)
+	local value = self.Flags["RuntimeValue257"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue257(value)
+	self.Flags["RuntimeValue257"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue258(fallback)
+	local value = self.Flags["RuntimeValue258"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue258(value)
+	self.Flags["RuntimeValue258"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue259(fallback)
+	local value = self.Flags["RuntimeValue259"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue259(value)
+	self.Flags["RuntimeValue259"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue260(fallback)
+	local value = self.Flags["RuntimeValue260"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue260(value)
+	self.Flags["RuntimeValue260"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue261(fallback)
+	local value = self.Flags["RuntimeValue261"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue261(value)
+	self.Flags["RuntimeValue261"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue262(fallback)
+	local value = self.Flags["RuntimeValue262"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue262(value)
+	self.Flags["RuntimeValue262"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue263(fallback)
+	local value = self.Flags["RuntimeValue263"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue263(value)
+	self.Flags["RuntimeValue263"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue264(fallback)
+	local value = self.Flags["RuntimeValue264"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue264(value)
+	self.Flags["RuntimeValue264"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue265(fallback)
+	local value = self.Flags["RuntimeValue265"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue265(value)
+	self.Flags["RuntimeValue265"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue266(fallback)
+	local value = self.Flags["RuntimeValue266"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue266(value)
+	self.Flags["RuntimeValue266"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue267(fallback)
+	local value = self.Flags["RuntimeValue267"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue267(value)
+	self.Flags["RuntimeValue267"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue268(fallback)
+	local value = self.Flags["RuntimeValue268"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue268(value)
+	self.Flags["RuntimeValue268"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue269(fallback)
+	local value = self.Flags["RuntimeValue269"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue269(value)
+	self.Flags["RuntimeValue269"] = value
+
+	return value
+end
+
+function Window:GetRuntimeValue270(fallback)
+	local value = self.Flags["RuntimeValue270"]
+
+	if value == nil then
+		return fallback
+	end
+
+	return value
+end
+
+function Window:SetRuntimeValue270(value)
+	self.Flags["RuntimeValue270"] = value
+
+	return value
+end
 
 return LucidUI
