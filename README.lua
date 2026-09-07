@@ -1,5 +1,6 @@
+------LUCIANO HUUUUKKLLLLLLLLLLL
 local LucidUI = {}
-LucidUI.Version = "5.1.0-safe"
+LucidUI.Version = "5.2.0-stable"
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -9,13 +10,28 @@ local CoreGui = game:GetService("CoreGui")
 
 local LP = Players.LocalPlayer
 
-local ENV=(getgenv and getgenv()) or _G
-local RUNTIME_KEY="__LUCIDUI_SAFE_RUNTIME"
+local function RemovePreviousLucid()
+	local roots = {
+		CoreGui,
+		LP and LP:FindFirstChild("PlayerGui")
+	}
 
-local previous=ENV[RUNTIME_KEY]
-if type(previous)=="table" and type(previous.Destroy)=="function" then
-	pcall(previous.Destroy)
+	for _, root in ipairs(roots) do
+		if root then
+			for _, child in ipairs(root:GetChildren()) do
+				if child:IsA("ScreenGui") then
+					if child.Name == "LucidUI_V5_SAFE" or child.Name == "LucidUI_V5_2" or child:GetAttribute("LucidUIRuntime") == true then
+						pcall(function()
+							child:Destroy()
+						end)
+					end
+				end
+			end
+		end
+	end
 end
+
+RemovePreviousLucid()
 
 local DEFAULT = {
 	Background = Color3.fromRGB(7,7,10),
@@ -126,18 +142,10 @@ function LucidUI:CreateWindow(o)
 		end
 	end
 
-	local gui=New("ScreenGui",{Name="LucidUI_V5_SAFE",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,IgnoreGuiInset=false},nil)
+	local gui=New("ScreenGui",{Name="LucidUI_V5_2",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,IgnoreGuiInset=false},nil)
 	SafeParent(gui)
 	self.Gui=gui
 	gui:SetAttribute("LucidUIRuntime",true)
-	ENV[RUNTIME_KEY]={
-		Gui=gui,
-		Destroy=function()
-			if gui and gui.Parent then
-				gui:Destroy()
-			end
-		end
-	}
 
 	local main=New("Frame",{
 		AnchorPoint=Vector2.new(.5,.5),
@@ -319,7 +327,11 @@ function Window:SetShape(shape)
 end
 
 function Window:AddTab(o)
-	if type(o)=="string" then o={Name=o} end
+	if type(o)=="string" then
+		o={
+			Name=o
+		}
+	end
 	o=o or {}
 	local t=setmetatable({Window=self,Name=o.Name or "Tab",Sections={}},Tab)
 	local b=Button(self.TabBar,t.Name,12,self.Theme.Muted,true)
@@ -383,7 +395,11 @@ function Section:_Base(o,height)
 end
 
 function Section:AddButton(o)
-	if type(o)=="string" then o={Name=o} end
+	if type(o)=="string" then
+		o={
+			Name=o
+		}
+	end
 	o=o or {}
 	local _,controls,c=self:_Base(o,o.Description and 62 or 54)
 	c.Type="Button"
@@ -653,7 +669,11 @@ function Section:AddDivider()
 end
 
 function Window:Notify(o)
-	if type(o)=="string" then o={Content=o} end
+	if type(o)=="string" then
+		o={
+			Content=o
+		}
+	end
 	o=o or {}
 	if not self.NotificationHolder then
 		self.NotificationHolder=New("Frame",{AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,-16,1,-16),Size=UDim2.fromOffset(310,400),BackgroundTransparency=1,ZIndex=200},self.Gui)
@@ -678,15 +698,647 @@ function Window:Notify(o)
 	return card
 end
 
+
+function Section:AddMultiDropdown(o)
+	o=o or {}
+
+	local values=o.Options or o.Values or {}
+	local selected={}
+
+	for _,value in ipairs(o.Default or {}) do
+		selected[value]=true
+	end
+
+	local card,controls,c=self:_Base(
+		o,
+		o.Description and 64 or 56
+	)
+
+	c.Type="MultiDropdown"
+
+	local button=Button(
+		controls,
+		"Select",
+		11,
+		self.Window.Theme.Text,
+		false
+	)
+
+	button.AnchorPoint=Vector2.new(1,.5)
+	button.Position=UDim2.new(1,0,.5,0)
+	button.Size=UDim2.fromOffset(145,32)
+	button.BackgroundTransparency=0
+	button.BackgroundColor3=self.Window.Theme.Control
+
+	Corner(
+		button,
+		7
+	)
+
+	local popup=nil
+
+	local function getArray()
+		local result={}
+
+		for _,value in ipairs(values) do
+			if selected[value] then
+				table.insert(
+					result,
+					value
+				)
+			end
+		end
+
+		return result
+	end
+
+	local function refreshText()
+		local list=getArray()
+
+		if #list==0 then
+			button.Text=o.Placeholder or "Select"
+		elseif #list==1 then
+			button.Text=tostring(list[1])
+		else
+			button.Text=tostring(#list).." selected"
+		end
+	end
+
+	local function fire()
+		local list=getArray()
+
+		if o.Flag then
+			self.Window.Flags[o.Flag]=list
+		end
+
+		task.spawn(
+			o.Callback or function()
+			end,
+			list
+		)
+	end
+
+	local function close()
+		if popup then
+			popup:Destroy()
+			popup=nil
+		end
+	end
+
+	button.MouseButton1Click:Connect(function()
+		if popup then
+			close()
+			return
+		end
+
+		local height=math.min(
+			210,
+			#values*34+8
+		)
+
+		popup=New(
+			"Frame",
+			{
+				Position=UDim2.fromOffset(
+					button.AbsolutePosition.X,
+					button.AbsolutePosition.Y+button.AbsoluteSize.Y+5
+				),
+				Size=UDim2.fromOffset(
+					button.AbsoluteSize.X,
+					height
+				),
+				BackgroundColor3=self.Window.Theme.Panel,
+				BorderSizePixel=0,
+				ZIndex=120
+			},
+			self.Window.Gui
+		)
+
+		Corner(
+			popup,
+			8
+		)
+
+		Stroke(
+			popup,
+			self.Window.Theme.Border,
+			1
+		)
+
+		Pad(
+			popup,
+			4,
+			4,
+			4,
+			4
+		)
+
+		New(
+			"UIListLayout",
+			{
+				Padding=UDim.new(0,3)
+			},
+			popup
+		)
+
+		for _,value in ipairs(values) do
+			local item=Button(
+				popup,
+				"",
+				11,
+				self.Window.Theme.Text,
+				false
+			)
+
+			item.Size=UDim2.new(
+				1,
+				0,
+				0,
+				30
+			)
+
+			item.BackgroundTransparency=0
+			item.BackgroundColor3=self.Window.Theme.Card
+			item.ZIndex=121
+
+			Corner(
+				item,
+				6
+			)
+
+			local mark=New(
+				"Frame",
+				{
+					Position=UDim2.fromOffset(8,8),
+					Size=UDim2.fromOffset(14,14),
+					BackgroundColor3=selected[value] and self.Window.Theme.Accent or self.Window.Theme.Control,
+					BorderSizePixel=0,
+					ZIndex=122
+				},
+				item
+			)
+
+			Corner(
+				mark,
+				4
+			)
+
+			local text=Label(
+				item,
+				tostring(value),
+				11,
+				self.Window.Theme.Text,
+				false
+			)
+
+			text.Position=UDim2.fromOffset(
+				30,
+				0
+			)
+
+			text.Size=UDim2.new(
+				1,
+				-34,
+				1,
+				0
+			)
+
+			text.ZIndex=122
+
+			item.MouseButton1Click:Connect(function()
+				selected[value]=not selected[value]
+
+				mark.BackgroundColor3=selected[value] and self.Window.Theme.Accent or self.Window.Theme.Control
+
+				refreshText()
+				fire()
+			end)
+		end
+	end)
+
+	function c:Get()
+		return getArray()
+	end
+
+	function c:Set(list)
+		selected={}
+
+		for _,value in ipairs(list or {}) do
+			selected[value]=true
+		end
+
+		refreshText()
+		fire()
+	end
+
+	function c:Close()
+		close()
+	end
+
+	refreshText()
+
+	return c
+end
+
+function Section:AddStatus(o)
+	o=o or {}
+
+	local card=New(
+		"Frame",
+		{
+			Size=UDim2.new(1,0,0,50),
+			BackgroundColor3=self.Window.Theme.Card,
+			BorderSizePixel=0
+		},
+		self.Frame
+	)
+
+	Corner(
+		card,
+		8
+	)
+
+	local dot=New(
+		"Frame",
+		{
+			AnchorPoint=Vector2.new(0,.5),
+			Position=UDim2.new(0,13,.5,0),
+			Size=UDim2.fromOffset(10,10),
+			BackgroundColor3=o.Color or self.Window.Theme.Success,
+			BorderSizePixel=0
+		},
+		card
+	)
+
+	Corner(
+		dot,
+		10
+	)
+
+	local title=Label(
+		card,
+		o.Name or "Status",
+		12,
+		self.Window.Theme.Text,
+		true
+	)
+
+	title.Position=UDim2.fromOffset(
+		32,
+		0
+	)
+
+	title.Size=UDim2.new(
+		1,
+		-130,
+		1,
+		0
+	)
+
+	local value=Label(
+		card,
+		o.Value or "Ready",
+		11,
+		self.Window.Theme.Muted,
+		true
+	)
+
+	value.AnchorPoint=Vector2.new(
+		1,
+		0
+	)
+
+	value.Position=UDim2.new(
+		1,
+		-13,
+		0,
+		0
+	)
+
+	value.Size=UDim2.fromOffset(
+		90,
+		50
+	)
+
+	value.TextXAlignment=Enum.TextXAlignment.Right
+
+	local c={
+		Type="Status",
+		Card=card
+	}
+
+	function c:Set(text,color)
+		value.Text=tostring(text or "")
+
+		if color then
+			dot.BackgroundColor3=color
+		end
+	end
+
+	return c
+end
+
+function Section:AddBadge(o)
+	o=o or {}
+
+	local card,controls,c=self:_Base(
+		o,
+		o.Description and 64 or 56
+	)
+
+	c.Type="Badge"
+
+	local badge=Label(
+		controls,
+		o.Value or o.Text or "NEW",
+		10,
+		o.TextColor or self.Window.Theme.Text,
+		true
+	)
+
+	badge.AnchorPoint=Vector2.new(
+		1,
+		.5
+	)
+
+	badge.Position=UDim2.new(
+		1,
+		0,
+		.5,
+		0
+	)
+
+	badge.Size=UDim2.fromOffset(
+		o.Width or 72,
+		26
+	)
+
+	badge.BackgroundTransparency=0
+	badge.BackgroundColor3=o.Color or self.Window.Theme.Accent
+	badge.TextXAlignment=Enum.TextXAlignment.Center
+
+	Corner(
+		badge,
+		7
+	)
+
+	function c:Set(text,color)
+		badge.Text=tostring(text or "")
+
+		if color then
+			badge.BackgroundColor3=color
+		end
+	end
+
+	return c
+end
+
+function Section:AddCollapsible(o)
+	o=o or {}
+
+	local open=o.DefaultOpen~=false
+
+	local root=New(
+		"Frame",
+		{
+			Size=UDim2.new(1,0,0,48),
+			AutomaticSize=Enum.AutomaticSize.Y,
+			BackgroundColor3=self.Window.Theme.Card,
+			BorderSizePixel=0
+		},
+		self.Frame
+	)
+
+	Corner(
+		root,
+		8
+	)
+
+	local header=Button(
+		root,
+		"",
+		1,
+		self.Window.Theme.Text,
+		false
+	)
+
+	header.Size=UDim2.new(
+		1,
+		0,
+		0,
+		48
+	)
+
+	local title=Label(
+		header,
+		o.Name or "Collapsible",
+		12,
+		self.Window.Theme.Text,
+		true
+	)
+
+	title.Position=UDim2.fromOffset(
+		13,
+		0
+	)
+
+	title.Size=UDim2.new(
+		1,
+		-50,
+		1,
+		0
+	)
+
+	local arrow=Label(
+		header,
+		open and "−" or "+",
+		16,
+		self.Window.Theme.Muted,
+		true
+	)
+
+	arrow.AnchorPoint=Vector2.new(
+		1,
+		0
+	)
+
+	arrow.Position=UDim2.new(
+		1,
+		-13,
+		0,
+		0
+	)
+
+	arrow.Size=UDim2.fromOffset(
+		28,
+		48
+	)
+
+	arrow.TextXAlignment=Enum.TextXAlignment.Center
+
+	local content=New(
+		"Frame",
+		{
+			Position=UDim2.fromOffset(0,48),
+			Size=UDim2.new(1,0,0,0),
+			AutomaticSize=Enum.AutomaticSize.Y,
+			BackgroundTransparency=1,
+			Visible=open
+		},
+		root
+	)
+
+	Pad(
+		content,
+		12,
+		12,
+		0,
+		12
+	)
+
+	local layout=New(
+		"UIListLayout",
+		{
+			Padding=UDim.new(0,7),
+			SortOrder=Enum.SortOrder.LayoutOrder
+		},
+		content
+	)
+
+	local c={
+		Type="Collapsible",
+		Card=root,
+		Content=content
+	}
+
+	function c:SetOpen(value)
+		open=value==true
+		content.Visible=open
+		arrow.Text=open and "−" or "+"
+	end
+
+	function c:GetOpen()
+		return open
+	end
+
+	function c:AddText(text)
+		local label=Label(
+			content,
+			tostring(text or ""),
+			11,
+			self.Window.Theme.Muted,
+			false
+		)
+
+		label.Size=UDim2.new(
+			1,
+			0,
+			0,
+			22
+		)
+
+		return label
+	end
+
+	header.MouseButton1Click:Connect(function()
+		c:SetOpen(
+			not open
+		)
+	end)
+
+	return c
+end
+
+function Window:SetBackgroundImage(source,transparency)
+	return self:SetBackground(
+		source,
+		transparency
+	)
+end
+
+function Window:ClearBackground()
+	self.BackgroundImage.Image=""
+	self.BackgroundImage.ImageTransparency=1
+end
+
+function Window:GetTheme()
+	local copy={}
+
+	for key,value in pairs(self.Theme) do
+		copy[key]=value
+	end
+
+	return copy
+end
+
+function Window:SetTheme(theme)
+	if type(theme)~="table" then
+		return
+	end
+
+	for key,value in pairs(theme) do
+		if self.Theme[key]~=nil then
+			self.Theme[key]=value
+		end
+	end
+
+	self.Main.BackgroundColor3=self.Theme.Background
+	self.Topbar.BackgroundColor3=self.Theme.Topbar
+	self.MainStroke.Color=self.Neon and self.Theme.Accent or self.Theme.Border
+
+	for _,tab in ipairs(self.Tabs) do
+		tab.Indicator.BackgroundColor3=self.Theme.Accent
+	end
+end
+
+function Window:ResetTheme()
+	for key,value in pairs(DEFAULT) do
+		self.Theme[key]=value
+	end
+
+	self:SetTheme(
+		self.Theme
+	)
+end
+
+function Window:GetFlags()
+	local copy={}
+
+	for key,value in pairs(self.Flags) do
+		copy[key]=value
+	end
+
+	return copy
+end
+
+function Window:ClearFlags()
+	table.clear(
+		self.Flags
+	)
+end
+
+function Window:Show()
+	self:SetVisible(
+		true
+	)
+end
+
+function Window:Hide()
+	self:SetVisible(
+		false
+	)
+end
+
+function Window:IsVisible()
+	return self.Visible
+end
+
 function Window:Destroy()
 	for _,c in ipairs(self.Connections) do
 		pcall(function() c:Disconnect() end)
 	end
 	if self.Gui then
 		pcall(function() self.Gui:Destroy() end)
-	end
-	if ENV[RUNTIME_KEY] and ENV[RUNTIME_KEY].Gui==self.Gui then
-		ENV[RUNTIME_KEY]=nil
 	end
 end
 
