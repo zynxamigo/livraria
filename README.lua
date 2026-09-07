@@ -10,15 +10,15 @@ local LocalPlayer = Players.LocalPlayer
 
 local Themes = {
     Midnight = {
-        Background = Color3.fromRGB(16, 18, 24),
-        Surface = Color3.fromRGB(22, 25, 33),
-        Surface2 = Color3.fromRGB(28, 31, 41),
-        Surface3 = Color3.fromRGB(35, 39, 51),
-        Accent = Color3.fromRGB(105, 126, 255),
-        Accent2 = Color3.fromRGB(132, 102, 255),
+        Background = Color3.fromRGB(7, 7, 9),
+        Surface = Color3.fromRGB(11, 11, 14),
+        Surface2 = Color3.fromRGB(17, 17, 22),
+        Surface3 = Color3.fromRGB(24, 24, 31),
+        Accent = Color3.fromRGB(116, 92, 255),
+        Accent2 = Color3.fromRGB(146, 105, 255),
         Text = Color3.fromRGB(240, 242, 248),
         MutedText = Color3.fromRGB(155, 162, 178),
-        Stroke = Color3.fromRGB(52, 57, 72),
+        Stroke = Color3.fromRGB(40, 40, 50),
         Success = Color3.fromRGB(76, 201, 138),
         Warning = Color3.fromRGB(255, 190, 92),
         Danger = Color3.fromRGB(255, 100, 115)
@@ -371,7 +371,9 @@ function LucidUI:CreateWindow(options)
     end)
 
     close.MouseButton1Click:Connect(function()
-        self:Destroy()
+        self.Visible = false
+        self.Main.Visible = false
+        self.Shadow.Visible = false
     end)
 
     minimize.MouseEnter:Connect(function()
@@ -411,7 +413,7 @@ function LucidUI:CreateWindow(options)
         if processed then
             return
         end
-        if input.KeyCode == Enum.KeyCode.RightControl then
+        if input.KeyCode == Enum.KeyCode.Tab then
             self:Toggle()
         end
         for _, item in ipairs(self.Keybinds) do
@@ -1345,6 +1347,527 @@ function Section:AddProgress(options)
         Get = function()
             return value
         end
+    }
+end
+
+
+local LUCID_STAR = "rbxassetid://393353129"
+local LUCID_SEARCH = "rbxassetid://108401203679664"
+local LUCID_SETTINGS = "rbxassetid://130679451576739"
+
+LucidUI.Icons = {
+    Star = LUCID_STAR,
+    Search = LUCID_SEARCH,
+    Settings = LUCID_SETTINGS
+}
+
+local OriginalCreateWindow = LucidUI.CreateWindow
+local OriginalAddTab = Window.AddTab
+local OriginalAddSection = Tab.AddSection
+local OriginalSectionButton = Section.AddButton
+local OriginalSectionToggle = Section.AddToggle
+local OriginalSectionSlider = Section.AddSlider
+local OriginalSectionDropdown = Section.AddDropdown
+local OriginalSectionTextbox = Section.AddTextbox
+local OriginalSectionKeybind = Section.AddKeybind
+local OriginalSectionLabel = Section.AddLabel
+local OriginalSectionProgress = Section.AddProgress
+
+local function normalizeIcon(value)
+    if not value then
+        return nil
+    end
+    value = tostring(value)
+    if string.find(value, "rbxasset", 1, true) then
+        return value
+    end
+    return "rbxassetid://" .. value
+end
+
+local function attachFavorite(window, component)
+    if not component or not component.Card or not component.Card.Parent then
+        return
+    end
+
+    local star = create("ImageButton", {
+        Name = "LucidFavorite",
+        Visible = window.FavoriteMode == true,
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -8, 0.5, 0),
+        Size = UDim2.fromOffset(24, 24),
+        BackgroundTransparency = 1,
+        Image = LUCID_STAR,
+        ImageColor3 = component.Favorited and Color3.fromRGB(255, 197, 66) or window.Theme.MutedText,
+        AutoButtonColor = false,
+        BorderSizePixel = 0,
+        ZIndex = 10
+    })
+    star.Parent = component.Card
+    component.FavoriteButton = star
+
+    star.MouseButton1Click:Connect(function()
+        component.Favorited = not component.Favorited
+        tween(star, TweenInfo.new(0.13), {
+            ImageColor3 = component.Favorited and Color3.fromRGB(255, 197, 66) or window.Theme.MutedText
+        })
+        window:_RefreshFavorites()
+    end)
+end
+
+local function registerComponent(section, name, description, beforeChildren)
+    local window = section.Window
+    window.Components = window.Components or {}
+
+    local card
+    local children = section.Content:GetChildren()
+    for i = #children, 1, -1 do
+        local child = children[i]
+        if child:IsA("GuiObject") and not beforeChildren[child] then
+            card = child
+            break
+        end
+    end
+
+    local component = {
+        Name = name or "Component",
+        Description = description or "",
+        Tab = section.Tab,
+        Section = section,
+        Card = card,
+        Favorited = false
+    }
+
+    table.insert(window.Components, component)
+    attachFavorite(window, component)
+    return component
+end
+
+local function snapshotChildren(parent)
+    local t = {}
+    for _, child in ipairs(parent:GetChildren()) do
+        t[child] = true
+    end
+    return t
+end
+
+function LucidUI:CreateWindow(options)
+    local window = OriginalCreateWindow(self, options)
+    window.Components = {}
+    window.FavoriteMode = false
+    window.FavoriteRows = {}
+
+    local topbar = window.Main:FindFirstChild("Topbar")
+    local actions
+    if topbar then
+        for _, child in ipairs(topbar:GetChildren()) do
+            if child:IsA("Frame") and child:FindFirstChildOfClass("UIListLayout") then
+                actions = child
+                break
+            end
+        end
+    end
+
+    if actions then
+        actions.Size = UDim2.fromOffset(132, 32)
+
+        local star = create("ImageButton", {
+            Name = "FavoriteMode",
+            Size = UDim2.fromOffset(32, 32),
+            LayoutOrder = -10,
+            BackgroundColor3 = window.Theme.Surface2,
+            BackgroundTransparency = 0,
+            Image = LUCID_STAR,
+            ImageColor3 = window.Theme.MutedText,
+            AutoButtonColor = false,
+            BorderSizePixel = 0
+        }, {
+            corner(8)
+        })
+        star.Parent = actions
+        window.FavoriteModeButton = star
+
+        star.MouseButton1Click:Connect(function()
+            window.FavoriteMode = not window.FavoriteMode
+            tween(star, TweenInfo.new(0.15), {
+                ImageColor3 = window.FavoriteMode and Color3.fromRGB(255, 197, 66) or window.Theme.MutedText,
+                BackgroundColor3 = window.FavoriteMode and Color3.fromRGB(45, 35, 15) or window.Theme.Surface2
+            })
+
+            for _, component in ipairs(window.Components) do
+                if component.FavoriteButton then
+                    component.FavoriteButton.Visible = window.FavoriteMode
+                end
+            end
+
+            if not window.FavoriteMode then
+                window:_RefreshFavorites()
+            end
+        end)
+    end
+
+    local oldPlaceholder = window.SearchBox.PlaceholderText
+    window.SearchBox.PlaceholderText = "Search tabs & options..."
+
+    window.SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local q = string.lower(window.SearchBox.Text)
+        if q == "" then
+            for _, tab in ipairs(window.Tabs) do
+                if not tab.IsFavoriteTab then
+                    tab.Button.Visible = true
+                end
+            end
+            if window.FavoritesTab then
+                window.FavoritesTab.Button.Visible = window:_FavoriteCount() > 0
+            end
+            return
+        end
+
+        for _, tab in ipairs(window.Tabs) do
+            if tab.IsFavoriteTab then
+                tab.Button.Visible = false
+            else
+                local match = string.find(string.lower(tab.Name), q, 1, true) ~= nil
+                if not match then
+                    for _, component in ipairs(window.Components) do
+                        if component.Tab == tab then
+                            local hay = string.lower(component.Name .. " " .. component.Description .. " " .. component.Section.Name)
+                            if string.find(hay, q, 1, true) then
+                                match = true
+                                break
+                            end
+                        end
+                    end
+                end
+                tab.Button.Visible = match
+            end
+        end
+    end)
+
+    return window
+end
+
+function Window:_FavoriteCount()
+    local n = 0
+    for _, component in ipairs(self.Components or {}) do
+        if component.Favorited then
+            n += 1
+        end
+    end
+    return n
+end
+
+function Window:_EnsureFavoritesTab()
+    if self.FavoritesTab then
+        return self.FavoritesTab
+    end
+
+    local tab = OriginalAddTab(self, "Favorites", LUCID_STAR)
+    tab.IsFavoriteTab = true
+    tab.Button.LayoutOrder = -100
+    tab.Button.Visible = false
+    self.FavoritesTab = tab
+    return tab
+end
+
+function Window:_RefreshFavorites()
+    local count = self:_FavoriteCount()
+    if count == 0 and not self.FavoritesTab then
+        return
+    end
+
+    local tab = self:_EnsureFavoritesTab()
+    tab.Button.Visible = count > 0
+
+    for _, child in ipairs(tab.Page:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
+        end
+    end
+
+    if count == 0 then
+        return
+    end
+
+    local section = OriginalAddSection(tab, "Quick access")
+
+    for _, component in ipairs(self.Components) do
+        if component.Favorited then
+            local row = create("TextButton", {
+                Size = UDim2.new(1, 0, 0, 48),
+                BackgroundColor3 = self.Theme.Surface2,
+                BackgroundTransparency = 0,
+                AutoButtonColor = false,
+                Text = "",
+                BorderSizePixel = 0
+            }, {
+                corner(8),
+                stroke(self.Theme.Stroke, 1, 0.45)
+            })
+            row.Parent = section.Content
+
+            local name = textLabel(component.Name, 13, self.Theme.Text, Enum.Font.GothamBold)
+            name.Position = UDim2.fromOffset(12, 4)
+            name.Size = UDim2.new(1, -24, 0, 21)
+            name.Parent = row
+
+            local path = textLabel(component.Tab.Name .. "  ›  " .. component.Section.Name, 10, self.Theme.MutedText, Enum.Font.Gotham)
+            path.Position = UDim2.fromOffset(12, 25)
+            path.Size = UDim2.new(1, -24, 0, 16)
+            path.Parent = row
+
+            row.MouseButton1Click:Connect(function()
+                self:SelectTab(component.Tab)
+                if component.Card and component.Card.Parent then
+                    tween(component.Card, TweenInfo.new(0.12), {BackgroundColor3 = self.Theme.Surface3})
+                    task.delay(0.35, function()
+                        if component.Card and component.Card.Parent then
+                            tween(component.Card, TweenInfo.new(0.18), {BackgroundColor3 = self.Theme.Surface2})
+                        end
+                    end)
+                end
+            end)
+        end
+    end
+end
+
+function Window:AddTab(name, icon)
+    local tab = OriginalAddTab(self, name, icon)
+    if icon then
+        local image = create("ImageLabel", {
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 10, 0.5, -8),
+            Size = UDim2.fromOffset(16, 16),
+            Image = normalizeIcon(icon),
+            ImageColor3 = self.Theme.MutedText,
+            BorderSizePixel = 0
+        })
+        image.Parent = tab.Button
+        tab.Label.Position = UDim2.fromOffset(34, 0)
+        tab.Label.Size = UDim2.new(1, -42, 1, 0)
+        tab.IconImage = image
+    end
+    return tab
+end
+
+function Tab:AddSection(name)
+    local section = OriginalAddSection(self, name)
+    section.Tab = self
+    return section
+end
+
+local function wrapComponent(original, methodName)
+    Section[methodName] = function(self, options, ...)
+        local before = snapshotChildren(self.Content)
+        local result = original(self, options, ...)
+        local name = type(options) == "table" and options.Name or tostring(options or methodName)
+        local desc = type(options) == "table" and options.Description or ""
+        local c = registerComponent(self, name, desc, before)
+        if type(result) == "table" then
+            result._LucidComponent = c
+        end
+        return result
+    end
+end
+
+wrapComponent(OriginalSectionButton, "AddButton")
+wrapComponent(OriginalSectionToggle, "AddToggle")
+wrapComponent(OriginalSectionSlider, "AddSlider")
+wrapComponent(OriginalSectionDropdown, "AddDropdown")
+wrapComponent(OriginalSectionTextbox, "AddTextbox")
+wrapComponent(OriginalSectionKeybind, "AddKeybind")
+wrapComponent(OriginalSectionProgress, "AddProgress")
+
+function Section:AddPlayerDropdown(options)
+    options = options or {}
+    local selected = options.Default
+    local callback = options.Callback or function() end
+    local before = snapshotChildren(self.Content)
+
+    local card = self:_Card(52)
+
+    local title = textLabel(options.Name or "Player", 13, self.Window.Theme.Text, Enum.Font.GothamMedium)
+    title.Position = UDim2.fromOffset(12, 0)
+    title.Size = UDim2.new(0.38, 0, 1, 0)
+    title.Parent = card
+
+    local pick = textButton(selected and selected.DisplayName or "Select player", 11, self.Window.Theme.Text, Enum.Font.Gotham)
+    pick.AnchorPoint = Vector2.new(1, 0.5)
+    pick.Position = UDim2.new(1, -42, 0.5, 0)
+    pick.Size = UDim2.fromOffset(155, 30)
+    pick.BackgroundTransparency = 0
+    pick.BackgroundColor3 = self.Window.Theme.Surface3
+    pick.Parent = card
+    corner(7).Parent = pick
+
+    local popup
+    local liveConnections = {}
+
+    local function disconnectLive()
+        for _, c in ipairs(liveConnections) do
+            c:Disconnect()
+        end
+        table.clear(liveConnections)
+    end
+
+    local function closePopup()
+        disconnectLive()
+        if popup then
+            popup:Destroy()
+            popup = nil
+        end
+    end
+
+    local function openPopup()
+        if popup then
+            closePopup()
+            return
+        end
+
+        popup = create("Frame", {
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, -42, 1, 5),
+            Size = UDim2.fromOffset(285, 270),
+            BackgroundColor3 = self.Window.Theme.Surface,
+            BorderSizePixel = 0,
+            ZIndex = 50
+        }, {
+            corner(10),
+            stroke(self.Window.Theme.Stroke, 1, 0.1)
+        })
+        popup.Parent = card
+
+        local search = create("TextBox", {
+            Position = UDim2.fromOffset(8, 8),
+            Size = UDim2.new(1, -16, 0, 34),
+            BackgroundColor3 = self.Window.Theme.Surface2,
+            BorderSizePixel = 0,
+            Text = "",
+            PlaceholderText = "Search player...",
+            PlaceholderColor3 = self.Window.Theme.MutedText,
+            TextColor3 = self.Window.Theme.Text,
+            TextSize = 11,
+            Font = Enum.Font.Gotham,
+            ClearTextOnFocus = false,
+            ZIndex = 51
+        }, {
+            corner(7)
+        })
+        search.Parent = popup
+
+        local list = create("ScrollingFrame", {
+            Position = UDim2.fromOffset(8, 50),
+            Size = UDim2.new(1, -16, 1, -58),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ScrollBarThickness = 2,
+            ScrollBarImageColor3 = self.Window.Theme.Stroke,
+            CanvasSize = UDim2.new(),
+            ZIndex = 51
+        })
+        list.Parent = popup
+
+        local layout = listLayout(Enum.FillDirection.Vertical, 5)
+        layout.Parent = list
+
+        local function rebuild()
+            for _, x in ipairs(list:GetChildren()) do
+                if x:IsA("TextButton") then
+                    x:Destroy()
+                end
+            end
+
+            local q = string.lower(search.Text)
+            local count = 0
+
+            for _, player in ipairs(Players:GetPlayers()) do
+                local hay = string.lower(player.Name .. " " .. player.DisplayName)
+                if q == "" or string.find(hay, q, 1, true) then
+                    count += 1
+
+                    local row = textButton("", 11, self.Window.Theme.Text, Enum.Font.Gotham)
+                    row.Size = UDim2.new(1, 0, 0, 44)
+                    row.BackgroundTransparency = 0
+                    row.BackgroundColor3 = self.Window.Theme.Surface2
+                    row.ZIndex = 52
+                    row.Parent = list
+                    corner(7).Parent = row
+
+                    local avatar = create("ImageLabel", {
+                        Position = UDim2.fromOffset(5, 5),
+                        Size = UDim2.fromOffset(34, 34),
+                        BackgroundColor3 = self.Window.Theme.Surface3,
+                        BorderSizePixel = 0,
+                        ZIndex = 53
+                    }, {
+                        corner(18)
+                    })
+                    avatar.Parent = row
+
+                    task.spawn(function()
+                        local ok, image = pcall(function()
+                            return Players:GetUserThumbnailAsync(
+                                player.UserId,
+                                Enum.ThumbnailType.HeadShot,
+                                Enum.ThumbnailSize.Size100x100
+                            )
+                        end)
+                        if ok and avatar.Parent then
+                            avatar.Image = image
+                        end
+                    end)
+
+                    local display = textLabel(player.DisplayName, 11, self.Window.Theme.Text, Enum.Font.GothamBold)
+                    display.Position = UDim2.fromOffset(47, 4)
+                    display.Size = UDim2.new(1, -52, 0, 19)
+                    display.ZIndex = 53
+                    display.Parent = row
+
+                    local username = textLabel("@" .. player.Name, 9, self.Window.Theme.MutedText, Enum.Font.Gotham)
+                    username.Position = UDim2.fromOffset(47, 22)
+                    username.Size = UDim2.new(1, -52, 0, 16)
+                    username.ZIndex = 53
+                    username.Parent = row
+
+                    row.MouseButton1Click:Connect(function()
+                        selected = player
+                        pick.Text = player.DisplayName
+                        closePopup()
+                        task.spawn(callback, player)
+                    end)
+                end
+            end
+
+            list.CanvasSize = UDim2.fromOffset(0, count * 49)
+        end
+
+        rebuild()
+        table.insert(liveConnections, search:GetPropertyChangedSignal("Text"):Connect(rebuild))
+        table.insert(liveConnections, Players.PlayerAdded:Connect(rebuild))
+        table.insert(liveConnections, Players.PlayerRemoving:Connect(function(player)
+            if selected == player then
+                selected = nil
+                pick.Text = "Select player"
+            end
+            rebuild()
+        end))
+    end
+
+    pick.MouseButton1Click:Connect(openPopup)
+
+    local c = registerComponent(self, options.Name or "PlayerDropdown", options.Description or "", before)
+
+    return {
+        Get = function()
+            return selected
+        end,
+        Set = function(_, player)
+            selected = player
+            pick.Text = player and player.DisplayName or "Select player"
+            if player then
+                task.spawn(callback, player)
+            end
+        end,
+        _LucidComponent = c
     }
 end
 
