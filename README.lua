@@ -1,6 +1,6 @@
-------LUCIANO HUUUUKKLLLLLLLLLLL
+------- em 2029 apeans
 local LucidUI = {}
-LucidUI.Version = "5.2.0-stable"
+LucidUI.Version = "5.4.0-full"
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -1331,6 +1331,686 @@ end
 
 function Window:IsVisible()
 	return self.Visible
+end
+
+
+function Section:AddColorPicker(o)
+	o=o or {}
+	local value=o.Default or self.Window.Theme.Accent
+	local card,controls,c=self:_Base(o,o.Description and 64 or 56)
+	c.Type="ColorPicker"
+
+	local preview=Button(controls,"",1,self.Window.Theme.Text,false)
+	preview.AnchorPoint=Vector2.new(1,.5)
+	preview.Position=UDim2.new(1,0,.5,0)
+	preview.Size=UDim2.fromOffset(42,30)
+	preview.BackgroundTransparency=0
+	preview.BackgroundColor3=value
+	Corner(preview,7)
+	Stroke(preview,self.Window.Theme.Border,1)
+
+	local popup
+
+	local function fire()
+		preview.BackgroundColor3=value
+		if o.Flag then
+			self.Window.Flags[o.Flag]={
+				R=math.floor(value.R*255+.5),
+				G=math.floor(value.G*255+.5),
+				B=math.floor(value.B*255+.5)
+			}
+		end
+		task.spawn(o.Callback or function() end,value)
+	end
+
+	local function close()
+		if popup then
+			popup:Destroy()
+			popup=nil
+		end
+	end
+
+	preview.MouseButton1Click:Connect(function()
+		if popup then
+			close()
+			return
+		end
+
+		popup=New("Frame",{
+			Position=UDim2.fromOffset(
+				math.max(8,preview.AbsolutePosition.X-190),
+				preview.AbsolutePosition.Y+preview.AbsoluteSize.Y+5
+			),
+			Size=UDim2.fromOffset(232,170),
+			BackgroundColor3=self.Window.Theme.Panel,
+			BorderSizePixel=0,
+			ZIndex=160
+		},self.Window.Gui)
+		Corner(popup,9)
+		Stroke(popup,self.Window.Theme.Border,1)
+		Pad(popup,10,10,10,10)
+
+		local title=Label(popup,o.Name or "Color",12,self.Window.Theme.Text,true)
+		title.Size=UDim2.new(1,0,0,20)
+		title.ZIndex=161
+
+		local channels={
+			{"R",value.R*255},
+			{"G",value.G*255},
+			{"B",value.B*255}
+		}
+
+		local boxes={}
+
+		for i,data in ipairs(channels) do
+			local y=30+(i-1)*38
+			local name=Label(popup,data[1],11,self.Window.Theme.Muted,true)
+			name.Position=UDim2.fromOffset(0,y)
+			name.Size=UDim2.fromOffset(22,30)
+			name.ZIndex=161
+
+			local box=New("TextBox",{
+				Position=UDim2.fromOffset(28,y),
+				Size=UDim2.new(1,-28,0,30),
+				BackgroundColor3=self.Window.Theme.Control,
+				BorderSizePixel=0,
+				Text=tostring(math.floor(data[2]+.5)),
+				TextColor3=self.Window.Theme.Text,
+				TextSize=11,
+				Font=Enum.Font.Gotham,
+				ClearTextOnFocus=false,
+				ZIndex=161
+			},popup)
+			Corner(box,6)
+			boxes[i]=box
+		end
+
+		local apply=Button(popup,"Apply",11,self.Window.Theme.Text,true)
+		apply.AnchorPoint=Vector2.new(1,1)
+		apply.Position=UDim2.new(1,0,1,0)
+		apply.Size=UDim2.fromOffset(72,28)
+		apply.BackgroundTransparency=0
+		apply.BackgroundColor3=self.Window.Theme.Accent
+		apply.ZIndex=161
+		Corner(apply,6)
+
+		apply.MouseButton1Click:Connect(function()
+			local r=math.clamp(tonumber(boxes[1].Text) or 0,0,255)
+			local g=math.clamp(tonumber(boxes[2].Text) or 0,0,255)
+			local b=math.clamp(tonumber(boxes[3].Text) or 0,0,255)
+			value=Color3.fromRGB(r,g,b)
+			fire()
+			close()
+		end)
+	end)
+
+	function c:Set(v)
+		if typeof(v)=="Color3" then
+			value=v
+			fire()
+		end
+	end
+
+	function c:Get()
+		return value
+	end
+
+	return c
+end
+
+function Section:AddPlayerDropdown(o)
+	o=o or {}
+	local selected=o.Default
+	local card,controls,c=self:_Base(o,o.Description and 70 or 62)
+	c.Type="PlayerDropdown"
+
+	local button=Button(controls,selected and selected.DisplayName or "Select player",11,self.Window.Theme.Text,false)
+	button.AnchorPoint=Vector2.new(1,.5)
+	button.Position=UDim2.new(1,0,.5,0)
+	button.Size=UDim2.fromOffset(155,34)
+	button.BackgroundTransparency=0
+	button.BackgroundColor3=self.Window.Theme.Control
+	Corner(button,7)
+
+	local popup
+
+	local function close()
+		if popup then
+			popup:Destroy()
+			popup=nil
+		end
+	end
+
+	local function selectPlayer(player)
+		selected=player
+		button.Text=player and player.DisplayName or "Select player"
+		close()
+		if o.Flag then
+			self.Window.Flags[o.Flag]=player and player.Name or nil
+		end
+		task.spawn(o.Callback or function() end,player)
+	end
+
+	button.MouseButton1Click:Connect(function()
+		if popup then
+			close()
+			return
+		end
+
+		popup=New("Frame",{
+			Position=UDim2.fromOffset(
+				math.max(8,button.AbsolutePosition.X-95),
+				button.AbsolutePosition.Y+button.AbsoluteSize.Y+5
+			),
+			Size=UDim2.fromOffset(250,300),
+			BackgroundColor3=self.Window.Theme.Panel,
+			BorderSizePixel=0,
+			ZIndex=180
+		},self.Window.Gui)
+		Corner(popup,9)
+		Stroke(popup,self.Window.Theme.Border,1)
+		Pad(popup,8,8,8,8)
+
+		local search=New("TextBox",{
+			Size=UDim2.new(1,0,0,32),
+			BackgroundColor3=self.Window.Theme.Control,
+			BorderSizePixel=0,
+			Text="",
+			PlaceholderText="Search player...",
+			PlaceholderColor3=self.Window.Theme.Muted,
+			TextColor3=self.Window.Theme.Text,
+			TextSize=11,
+			Font=Enum.Font.Gotham,
+			ClearTextOnFocus=false,
+			ZIndex=181
+		},popup)
+		Corner(search,7)
+		Pad(search,10,10,0,0)
+
+		local list=New("ScrollingFrame",{
+			Position=UDim2.fromOffset(0,40),
+			Size=UDim2.new(1,0,1,-40),
+			BackgroundTransparency=1,
+			BorderSizePixel=0,
+			ScrollBarThickness=2,
+			ScrollBarImageColor3=self.Window.Theme.Border,
+			CanvasSize=UDim2.new(),
+			ZIndex=181
+		},popup)
+
+		local layout=New("UIListLayout",{
+			Padding=UDim.new(0,5),
+			SortOrder=Enum.SortOrder.LayoutOrder
+		},list)
+
+		layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+			list.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+4)
+		end)
+
+		local entries={}
+
+		local function add(player)
+			local row=Button(list,"",1,self.Window.Theme.Text,false)
+			row.Size=UDim2.new(1,-4,0,50)
+			row.BackgroundTransparency=0
+			row.BackgroundColor3=self.Window.Theme.Card
+			row.ZIndex=182
+			Corner(row,7)
+
+			local avatar=New("ImageLabel",{
+				Position=UDim2.fromOffset(7,7),
+				Size=UDim2.fromOffset(36,36),
+				BackgroundColor3=self.Window.Theme.Control,
+				BorderSizePixel=0,
+				Image="",
+				ZIndex=183
+			},row)
+			Corner(avatar,18)
+
+			task.spawn(function()
+				local ok,image=pcall(function()
+					return Players:GetUserThumbnailAsync(
+						player.UserId,
+						Enum.ThumbnailType.HeadShot,
+						Enum.ThumbnailSize.Size100x100
+					)
+				end)
+				if ok and avatar.Parent then
+					avatar.Image=image
+				end
+			end)
+
+			local display=Label(row,player.DisplayName,11,self.Window.Theme.Text,true)
+			display.Position=UDim2.fromOffset(52,6)
+			display.Size=UDim2.new(1,-58,0,19)
+			display.ZIndex=183
+
+			local username=Label(row,"@"..player.Name,10,self.Window.Theme.Muted,false)
+			username.Position=UDim2.fromOffset(52,25)
+			username.Size=UDim2.new(1,-58,0,18)
+			username.ZIndex=183
+
+			row.MouseButton1Click:Connect(function()
+				selectPlayer(player)
+			end)
+
+			table.insert(entries,{
+				Player=player,
+				Row=row
+			})
+		end
+
+		for _,player in ipairs(Players:GetPlayers()) do
+			add(player)
+		end
+
+		local function filter()
+			local q=string.lower(search.Text)
+
+			for _,entry in ipairs(entries) do
+				local player=entry.Player
+				local hay=string.lower(player.DisplayName.." "..player.Name)
+				entry.Row.Visible=q=="" or string.find(hay,q,1,true)~=nil
+			end
+		end
+
+		search:GetPropertyChangedSignal("Text"):Connect(filter)
+	end)
+
+	function c:Get()
+		return selected
+	end
+
+	function c:Set(player)
+		selectPlayer(player)
+	end
+
+	return c
+end
+
+function Window:OpenConfirm(o)
+	o=o or {}
+
+	local overlay=New("TextButton",{
+		Size=UDim2.fromScale(1,1),
+		BackgroundColor3=Color3.new(0,0,0),
+		BackgroundTransparency=.35,
+		BorderSizePixel=0,
+		Text="",
+		AutoButtonColor=false,
+		ZIndex=400
+	},self.Gui)
+
+	local box=New("Frame",{
+		AnchorPoint=Vector2.new(.5,.5),
+		Position=UDim2.fromScale(.5,.5),
+		Size=UDim2.fromOffset(360,170),
+		BackgroundColor3=self.Theme.Panel,
+		BorderSizePixel=0,
+		ZIndex=401
+	},overlay)
+	Corner(box,12)
+	Stroke(box,self.Neon and self.Theme.Accent or self.Theme.Border,1)
+
+	local title=Label(box,o.Title or "Confirm",15,self.Theme.Text,true)
+	title.Position=UDim2.fromOffset(18,15)
+	title.Size=UDim2.new(1,-36,0,24)
+	title.ZIndex=402
+
+	local content=Label(box,o.Content or "Are you sure?",11,self.Theme.Muted,false)
+	content.Position=UDim2.fromOffset(18,46)
+	content.Size=UDim2.new(1,-36,0,55)
+	content.TextWrapped=true
+	content.TextTruncate=Enum.TextTruncate.None
+	content.TextYAlignment=Enum.TextYAlignment.Top
+	content.ZIndex=402
+
+	local cancel=Button(box,o.CancelText or "Cancel",11,self.Theme.Text,true)
+	cancel.Position=UDim2.new(1,-174,1,-47)
+	cancel.Size=UDim2.fromOffset(74,32)
+	cancel.BackgroundTransparency=0
+	cancel.BackgroundColor3=self.Theme.Control
+	cancel.ZIndex=402
+	Corner(cancel,7)
+
+	local confirm=Button(box,o.ConfirmText or "Confirm",11,self.Theme.Text,true)
+	confirm.Position=UDim2.new(1,-92,1,-47)
+	confirm.Size=UDim2.fromOffset(74,32)
+	confirm.BackgroundTransparency=0
+	confirm.BackgroundColor3=o.Danger and self.Theme.Danger or self.Theme.Accent
+	confirm.ZIndex=402
+	Corner(confirm,7)
+
+	cancel.MouseButton1Click:Connect(function()
+		overlay:Destroy()
+		task.spawn(o.OnCancel or function() end)
+	end)
+
+	confirm.MouseButton1Click:Connect(function()
+		overlay:Destroy()
+		task.spawn(o.OnConfirm or function() end)
+	end)
+
+	return overlay
+end
+
+function Window:SetWatermark(o)
+	if o==false then
+		if self.Watermark then
+			self.Watermark:Destroy()
+			self.Watermark=nil
+		end
+		return
+	end
+
+	if type(o)=="string" then
+		o={Text=o}
+	end
+
+	o=o or {}
+
+	if self.Watermark then
+		self.Watermark:Destroy()
+	end
+
+	local frame=New("Frame",{
+		Position=o.Position or UDim2.fromOffset(14,14),
+		Size=UDim2.fromOffset(o.Width or 190,30),
+		BackgroundColor3=self.Theme.Panel,
+		BorderSizePixel=0,
+		ZIndex=220
+	},self.Gui)
+	Corner(frame,7)
+	Stroke(frame,self.Neon and self.Theme.Accent or self.Theme.Border,1)
+
+	local text=Label(frame,o.Text or self.Title.."  |  "..LucidUI.Version,10,self.Theme.Text,true)
+	text.Position=UDim2.fromOffset(9,0)
+	text.Size=UDim2.new(1,-18,1,0)
+	text.ZIndex=221
+
+	self.Watermark=frame
+	return frame
+end
+
+function Window:AddFloatingButton(o)
+	o=o or {}
+
+	local button=Button(self.Gui,o.Text or "+",o.TextSize or 18,self.Theme.Text,true)
+	button.AnchorPoint=Vector2.new(1,1)
+	button.Position=o.Position or UDim2.new(1,-18,1,-18)
+	button.Size=UDim2.fromOffset(o.Size or 48,o.Size or 48)
+	button.BackgroundTransparency=0
+	button.BackgroundColor3=o.Color or self.Theme.Accent
+	button.ZIndex=230
+	Corner(button,o.Round==false and 9 or 24)
+	Stroke(button,self.Neon and self.Theme.Accent or self.Theme.Border,1)
+
+	button.MouseButton1Click:Connect(function()
+		task.spawn(o.Callback or function()
+			self:Toggle()
+		end)
+	end)
+
+	return button
+end
+
+function Window:CreateConfigManager()
+	local manager={}
+	manager.Window=self
+
+	local function folder()
+		return "LucidUI"
+	end
+
+	local function path(name)
+		return folder().."/"..tostring(name or "default")..".json"
+	end
+
+	function manager:IsSupported()
+		return writefile~=nil and readfile~=nil
+	end
+
+	function manager:Save(name)
+		if not writefile then
+			return false,"writefile unavailable"
+		end
+
+		if makefolder and isfolder and not isfolder(folder()) then
+			pcall(makefolder,folder())
+		end
+
+		local data={
+			Version=LucidUI.Version,
+			Flags=self.Window:GetFlags(),
+			Style={
+				Shape=self.Window.Shape,
+				Neon=self.Window.Neon,
+				Accent={
+					R=math.floor(self.Window.Theme.Accent.R*255+.5),
+					G=math.floor(self.Window.Theme.Accent.G*255+.5),
+					B=math.floor(self.Window.Theme.Accent.B*255+.5)
+				}
+			}
+		}
+
+		local ok,encoded=pcall(function()
+			return HttpService:JSONEncode(data)
+		end)
+
+		if not ok then
+			return false,encoded
+		end
+
+		return pcall(writefile,path(name),encoded)
+	end
+
+	function manager:Load(name)
+		if not readfile then
+			return false,"readfile unavailable"
+		end
+
+		local ok,raw=pcall(readfile,path(name))
+		if not ok then
+			return false,raw
+		end
+
+		local decoded
+		ok,decoded=pcall(function()
+			return HttpService:JSONDecode(raw)
+		end)
+
+		if not ok then
+			return false,decoded
+		end
+
+		for key,value in pairs(decoded.Flags or {}) do
+			self.Window.Flags[key]=value
+		end
+
+		local style=decoded.Style or {}
+
+		if style.Shape then
+			self.Window:SetShape(style.Shape)
+		end
+
+		if style.Neon~=nil then
+			self.Window:SetNeon(style.Neon)
+		end
+
+		if style.Accent then
+			self.Window:SetAccent(Color3.fromRGB(
+				style.Accent.R or 116,
+				style.Accent.G or 82,
+				style.Accent.B or 255
+			))
+		end
+
+		return true,decoded
+	end
+
+	function manager:Delete(name)
+		if not delfile then
+			return false,"delfile unavailable"
+		end
+
+		return pcall(delfile,path(name))
+	end
+
+	function manager:Exists(name)
+		if not isfile then
+			return false
+		end
+
+		local ok,result=pcall(isfile,path(name))
+		return ok and result
+	end
+
+	return manager
+end
+
+function Window:AddLibrarySettings()
+	local tab=self:AddTab("Library")
+	local appearance=tab:AddSection("Appearance")
+
+	appearance:AddDropdown({
+		Name="Window shape",
+		Description="Choose the corner style",
+		Options={"Rounded","Soft","Square"},
+		Default=self.Shape,
+		Callback=function(value)
+			self:SetShape(value)
+		end
+	})
+
+	appearance:AddColorPicker({
+		Name="Accent color",
+		Description="Changes the main Lucid accent",
+		Default=self.Theme.Accent,
+		Callback=function(value)
+			self:SetAccent(value)
+		end
+	})
+
+	appearance:AddToggle({
+		Name="Neon",
+		Description="Accent border glow style",
+		Default=self.Neon,
+		Callback=function(value)
+			self:SetNeon(value)
+		end
+	})
+
+	appearance:AddSlider({
+		Name="Background opacity",
+		Description="Opacity of the custom image",
+		Min=0,
+		Max=100,
+		Default=75,
+		Suffix="%",
+		Callback=function(value)
+			self.BackgroundImage.ImageTransparency=1-(value/100)
+		end
+	})
+
+	appearance:AddTextbox({
+		Name="Background image",
+		Description="Asset ID, rbxassetid:// or URL when supported",
+		Placeholder="Paste URL or asset ID",
+		Callback=function(value)
+			if value=="" then
+				self:ClearBackground()
+			else
+				self:SetBackground(value,self.BackgroundImage.ImageTransparency)
+			end
+		end
+	})
+
+	appearance:AddButtonGroup({
+		Name="Presets",
+		Options={
+			{
+				Name="Dark",
+				Callback=function()
+					self:SetAccent(Color3.fromRGB(116,82,255))
+					self:SetNeon(false)
+					self:SetShape("Rounded")
+				end
+			},
+			{
+				Name="Neon",
+				Callback=function()
+					self:SetNeon(true)
+				end
+			},
+			{
+				Name="Square",
+				Callback=function()
+					self:SetShape("Square")
+				end
+			}
+		}
+	})
+
+	local config=tab:AddSection("Config Manager")
+	local manager=self:CreateConfigManager()
+
+	local nameBox=config:AddTextbox({
+		Name="Config name",
+		Placeholder="default"
+	})
+
+	config:AddButtonGroup({
+		Name="Config",
+		Options={
+			{
+				Name="Save",
+				Callback=function()
+					local name=nameBox:Get()
+					if name=="" then
+						name="default"
+					end
+					local ok=manager:Save(name)
+					self:Notify({
+						Title="Config",
+						Content=ok and "Saved: "..name or "Save failed"
+					})
+				end
+			},
+			{
+				Name="Load",
+				Callback=function()
+					local name=nameBox:Get()
+					if name=="" then
+						name="default"
+					end
+					local ok=manager:Load(name)
+					self:Notify({
+						Title="Config",
+						Content=ok and "Loaded: "..name or "Load failed"
+					})
+				end
+			},
+			{
+				Name="Delete",
+				Callback=function()
+					local name=nameBox:Get()
+					if name=="" then
+						name="default"
+					end
+					self:OpenConfirm({
+						Title="Delete config",
+						Content="Delete '"..name.."'?",
+						Danger=true,
+						OnConfirm=function()
+							manager:Delete(name)
+						end
+					})
+				end
+			}
+		}
+	})
+
+	return tab
 end
 
 function Window:Destroy()
