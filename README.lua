@@ -1,6 +1,6 @@
--- LINES RWEWE
+--- EEEEEEEEEEEEEE
 local LucidUI = {}
-LucidUI.Version = "0.4.4-safe"
+LucidUI.Version = "0.4.5-layout"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -817,7 +817,7 @@ function Window:Notify(o)
 			Position=UDim2.new(1,-16,0,16),Size=UDim2.fromOffset(330,500),
 			BackgroundTransparency=1
 		},self.Gui)
-		new("UIListLayout",{Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder},holder)
+		new("UIListLayout",{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},holder)
 	end
 	local card=new("TextButton",{
 		Size=UDim2.new(1,0,0,0),BackgroundColor3=Theme.Surface,
@@ -1234,7 +1234,7 @@ function Window:_CreateToastCenter()
 		Position=UDim2.new(1,-16,0,16),Size=UDim2.fromOffset(340,560),
 		BackgroundTransparency=1
 	},self.Gui)
-	new("UIListLayout",{Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder},center)
+	new("UIListLayout",{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},center)
 	self.ToastCenter=center
 end
 
@@ -1314,7 +1314,7 @@ function Window:_CreateCommandPalette()
 		BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,
 		CanvasSize=UDim2.new(),ZIndex=202
 	},card)
-	local layout=new("UIListLayout",{Padding=UDim.new(0,6)},results)
+	local layout=new("UIListLayout",{Padding=UDim.new(0,10)},results)
 	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		results.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+8)
 	end)
@@ -2002,7 +2002,7 @@ function Section:AddCollapsible(o)
 	local api={Component=c,Content=content}
 	function api:AddLabel(text)
 		local x=label(content,text,10,Theme.Muted,false)
-		x.Size=UDim2.new(1,0,0,28)
+		x.Size=UDim2.new(1,0,0,32)
 		return x
 	end
 	function api:AddButton(opts)
@@ -2533,6 +2533,6 @@ LucidUI.APICatalog = {
 	Tab={"AddSection","AddSubTabs"}
 }
 
-LucidUI.Version="0.4.4-safe"
+LucidUI.Version="0.4.5-layout"
 
 return LucidUI
