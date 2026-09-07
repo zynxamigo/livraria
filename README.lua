@@ -200,10 +200,8 @@ function LucidUI:CreateWindow(o)
 
 	local shadow=new("Frame",{
 		AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),
-		Size=self.Size+UDim2.fromOffset(26,26),BackgroundColor3=Color3.new(),
-		BackgroundTransparency=.34,BorderSizePixel=0
+		Size=self.Size,BackgroundTransparency=1,BorderSizePixel=0,Visible=false
 	},gui)
-	corner(shadow,18)
 
 	local main=new("Frame",{
 		AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=self.Size,
@@ -220,11 +218,13 @@ function LucidUI:CreateWindow(o)
 
 	local title=label(top,self.Title,17,Theme.Text,true)
 	title.Position=UDim2.fromOffset(18,8)
-	title.Size=UDim2.new(0,180,0,23)
+	title.Size=UDim2.new(0,170,0,23)
+	title.TextTruncate=Enum.TextTruncate.AtEnd
 
 	local subtitle=label(top,self.Subtitle,10,Theme.Muted,false)
 	subtitle.Position=UDim2.fromOffset(18,31)
-	subtitle.Size=UDim2.new(0,180,0,18)
+	subtitle.Size=UDim2.new(0,170,0,18)
+	subtitle.TextTruncate=Enum.TextTruncate.AtEnd
 
 	local controls=new("Frame",{
 		AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-12,.5,0),
@@ -315,7 +315,22 @@ function LucidUI:CreateWindow(o)
 	local function setVisible(state)
 		self.Visible=state
 		main.Visible=state
-		shadow.Visible=state
+		shadow.Visible=false
+		if self.FirstP then
+			if state then
+				if self._MouseBehaviorBeforeLucid==nil then
+					self._MouseBehaviorBeforeLucid=UserInputService.MouseBehavior
+					self._MouseIconBeforeLucid=UserInputService.MouseIconEnabled
+				end
+				UserInputService.MouseBehavior=Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled=true
+			elseif self._MouseBehaviorBeforeLucid~=nil then
+				UserInputService.MouseBehavior=self._MouseBehaviorBeforeLucid
+				UserInputService.MouseIconEnabled=self._MouseIconBeforeLucid~=false
+				self._MouseBehaviorBeforeLucid=nil
+				self._MouseIconBeforeLucid=nil
+			end
+		end
 		if state then
 			main.Size=self.Size-UDim2.fromOffset(24,24)
 			main.BackgroundTransparency=.08
@@ -485,12 +500,14 @@ function Section:_Card(name,description,height)
 
 	local title=label(card,name,13,Theme.Text,true)
 	title.Position=UDim2.fromOffset(12,description and 5 or 0)
-	title.Size=UDim2.new(1,-210,description and 0 or 1,description and 20 or 0)
+	title.Size=UDim2.new(1,-250,description and 0 or 1,description and 20 or 0)
+	title.TextTruncate=Enum.TextTruncate.AtEnd
 
 	if description then
 		local d=label(card,description,10,Theme.Muted,false)
 		d.Position=UDim2.fromOffset(12,26)
-		d.Size=UDim2.new(1,-210,0,16)
+		d.Size=UDim2.new(1,-250,0,16)
+		d.TextTruncate=Enum.TextTruncate.AtEnd
 	end
 
 	local star=new("TextButton",{
@@ -988,6 +1005,7 @@ function LucidUI:CreateWindow(options)
 	window.ConfigFolder=options.ConfigFolder or "LucidUI"
 	window.ConfigName=options.ConfigName or "default"
 	window.ToggleKey=options.ToggleKey or Enum.KeyCode.Tab
+	window.FirstP=options.FirstP==true
 	window.CommandKey=options.CommandKey or Enum.KeyCode.K
 	window.CommandModifier=options.CommandModifier or Enum.KeyCode.LeftControl
 	window._ModifierDown=false
@@ -999,11 +1017,14 @@ function LucidUI:CreateWindow(options)
 	window.Main.BackgroundTransparency=1
 	window.Shadow.BackgroundTransparency=1
 	tween(window.Main,.3,{Size=window.Size,BackgroundTransparency=0})
-	tween(window.Shadow,.3,{BackgroundTransparency=.34})
+	window.Shadow.Visible=false
 
 	window:_CreateCommandPalette()
 	window:_CreateModalLayer()
 	window:_CreateToastCenter()
+	if window.FirstP and window.Visible then
+		window.SetVisible(true)
+	end
 
 	table.insert(window.Connections,UserInputService.InputBegan:Connect(function(input,processed)
 		if input.KeyCode==window.CommandModifier then
@@ -2497,6 +2518,6 @@ LucidUI.APICatalog = {
 	Tab={"AddSection","AddSubTabs"}
 }
 
-LucidUI.Version="0.4.0"
+LucidUI.Version="0.4.3"
 
 return LucidUI
