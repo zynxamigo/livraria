@@ -132,14 +132,19 @@ local function lineIcon(parent,kind,size,color)
 	elseif kind=="Minus" then
 		line(size/2,size/2,size*.62,2,0)
 	end
-	holder.SetColor=function(_,newColor)
-		color=newColor
-		for _,d in ipairs(holder:GetDescendants()) do
-			if d:IsA("Frame") and d~=holder and d.BackgroundTransparency<1 then d.BackgroundColor3=newColor end
-			if d:IsA("UIStroke") then d.Color=newColor end
+	holder:SetAttribute("LucidLineIcon",true)
+	return holder
+end
+
+local function setLineIconColor(holder,newColor)
+	if not holder then return end
+	for _,d in ipairs(holder:GetDescendants()) do
+		if d:IsA("Frame") and d~=holder and d.BackgroundTransparency<1 then
+			d.BackgroundColor3=newColor
+		elseif d:IsA("UIStroke") then
+			d.Color=newColor
 		end
 	end
-	return holder
 end
 
 local function safeParent(gui)
@@ -339,7 +344,7 @@ function LucidUI:CreateWindow(o)
 		tween(fav,.14,{
 			BackgroundColor3=self.FavoriteMode and Color3.fromRGB(40,31,12) or Theme.Surface2
 		})
-		favGlyph:SetColor(self.FavoriteMode and Theme.Favorite or Theme.Muted)
+		setLineIconColor(favGlyph,self.FavoriteMode and Theme.Favorite or Theme.Muted)
 		for _,c in ipairs(self.Components) do
 			if c.Star then c.Star.Visible=self.FavoriteMode end
 		end
@@ -507,7 +512,7 @@ function Section:_Card(name,description,height)
 
 	star.MouseButton1Click:Connect(function()
 		component.Favorited=not component.Favorited
-		starGlyph:SetColor(component.Favorited and Theme.Favorite or Theme.Muted)
+		setLineIconColor(starGlyph,component.Favorited and Theme.Favorite or Theme.Muted)
 		self.Window:_BuildFavorites()
 	end)
 
