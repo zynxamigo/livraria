@@ -1,5 +1,22 @@
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+----------------------------------
+
 local LucidUI = {}
-LucidUI.Version = "5.5.0-rebuild"
+LucidUI.Version = "5.6.0-pro"
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -120,6 +137,10 @@ function LucidUI:CreateWindow(o)
 	self.Size=o.Size or UDim2.fromOffset(860,540)
 	self.FirstP=o.FirstP==true
 	self.ToggleKey=o.ToggleKey or Enum.KeyCode.Tab
+	self.MouseUnlocked=false
+	self.StoredMouseBehavior=nil
+	self.StoredMouseIcon=nil
+	self.CameraDrag=false
 	self.Visible=true
 	self.Tabs={}
 	self.CurrentTab=nil
@@ -259,11 +280,18 @@ function LucidUI:CreateWindow(o)
 	end)
 	self.TabBar=tabs
 
-	local controls=New("Frame",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-12,.5,0),Size=UDim2.fromOffset(150,34),BackgroundTransparency=1,ZIndex=7},top)
+	local controls=New("Frame",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-12,.5,0),Size=UDim2.fromOffset(190,34),BackgroundTransparency=1,ZIndex=7},top)
 	New("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,7)},controls)
 	self.FavoriteMode=false
 	self.Favorites={}
 	self.FavoriteTab=nil
+
+	local searchButton=Button(controls,"⌕",18,self.Theme.Muted,true)
+	searchButton.Size=UDim2.fromOffset(34,34)
+	searchButton.BackgroundTransparency=0
+	searchButton.BackgroundColor3=self.Theme.Card
+	Corner(searchButton,8)
+	self.SearchButton=searchButton
 
 	local star=Button(controls,"☆",19,self.Theme.Muted,true)
 	star.Size=UDim2.fromOffset(34,34)
@@ -276,6 +304,20 @@ function LucidUI:CreateWindow(o)
 	mini.Size=UDim2.fromOffset(34,34) mini.BackgroundTransparency=0 mini.BackgroundColor3=self.Theme.Card Corner(mini,8)
 	local close=Button(controls,"×",19,self.Theme.Muted,true)
 	close.Size=UDim2.fromOffset(34,34) close.BackgroundTransparency=0 close.BackgroundColor3=self.Theme.Card Corner(close,8)
+
+	local topLine=New("Frame",{
+		Position=UDim2.new(0,0,0,67),
+		Size=UDim2.new(1,0,0,1),
+		BackgroundColor3=self.Theme.Border,
+		BorderSizePixel=0,
+		ZIndex=7
+	},main)
+
+	local versionPill=Label(top,"v"..LucidUI.Version:gsub("%-.*$",""),9,self.Theme.Muted,true)
+	versionPill.AnchorPoint=Vector2.new(0,.5)
+	versionPill.Position=UDim2.fromOffset(18,57)
+	versionPill.Size=UDim2.fromOffset(90,14)
+	versionPill.ZIndex=7
 
 	local body=New("Frame",{Position=UDim2.fromOffset(0,68),Size=UDim2.new(1,0,1,-68),BackgroundTransparency=1,ZIndex=2},main)
 	self.Content=body
@@ -295,11 +337,40 @@ function LucidUI:CreateWindow(o)
 		if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
 	end))
 
+\tfunction self:SetMouseUnlocked(state)
+		if not self.FirstP then
+			return
+		end
+
+		state=state==true
+
+		if state and not self.MouseUnlocked then
+			self.StoredMouseBehavior=UIS.MouseBehavior
+			self.StoredMouseIcon=UIS.MouseIconEnabled
+		end
+
+		self.MouseUnlocked=state
+
+		if state then
+			UIS.MouseBehavior=Enum.MouseBehavior.Default
+			UIS.MouseIconEnabled=true
+		else
+			if self.StoredMouseBehavior then
+				UIS.MouseBehavior=self.StoredMouseBehavior
+			end
+
+			if self.StoredMouseIcon~=nil then
+				UIS.MouseIconEnabled=self.StoredMouseIcon
+			end
+		end
+	end
+
 	function self:SetVisible(v)
 		self.Visible=v
 		main.Visible=v
+
 		if self.FirstP then
-			UIS.MouseIconEnabled=v
+			self:SetMouseUnlocked(v)
 		end
 	end
 
@@ -311,6 +382,10 @@ function LucidUI:CreateWindow(o)
 		star.Text=self.FavoriteMode and "★" or "☆"
 		star.TextColor3=self.FavoriteMode and self.Theme.Accent or self.Theme.Muted
 	end
+
+	searchButton.MouseButton1Click:Connect(function()
+		self:OpenSearch()
+	end)
 
 	star.MouseButton1Click:Connect(function()
 		self.FavoriteMode=not self.FavoriteMode
@@ -328,6 +403,17 @@ function LucidUI:CreateWindow(o)
 	end)
 
 	table.insert(self.Connections,UIS.InputBegan:Connect(function(i,processed)
+		if self.FirstP and self.Visible and i.UserInputType==Enum.UserInputType.MouseButton2 then
+			self.CameraDrag=true
+			UIS.MouseBehavior=Enum.MouseBehavior.LockCurrentPosition
+			UIS.MouseIconEnabled=false
+		end
+
+		if i.UserInputType==Enum.UserInputType.Keyboard and i.KeyCode==Enum.KeyCode.K and (UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.RightControl)) then
+			self:OpenSearch()
+			return
+		end
+
 		if i.UserInputType==Enum.UserInputType.Keyboard and i.KeyCode==self.ToggleKey then
 			self:Toggle()
 			return
@@ -343,6 +429,21 @@ function LucidUI:CreateWindow(o)
 			end
 		end
 	end))
+
+\ttable.insert(self.Connections,UIS.InputEnded:Connect(function(i)
+		if self.FirstP and i.UserInputType==Enum.UserInputType.MouseButton2 then
+			self.CameraDrag=false
+
+			if self.Visible then
+				UIS.MouseBehavior=Enum.MouseBehavior.Default
+				UIS.MouseIconEnabled=true
+			end
+		end
+	end))
+
+	if self.FirstP then
+		self:SetMouseUnlocked(true)
+	end
 
 	if style.Background then
 		local b=style.Background
@@ -753,6 +854,141 @@ function Section:AddButtonGroup(o)
 	return {Type="ButtonGroup",Card=card}
 end
 
+
+
+function Window:OpenSearch()
+	if self.SearchOverlay and self.SearchOverlay.Parent then
+		self.SearchOverlay:Destroy()
+		self.SearchOverlay=nil
+		return
+	end
+
+	local overlay=New("TextButton",{
+		Size=UDim2.fromScale(1,1),
+		BackgroundColor3=Color3.new(0,0,0),
+		BackgroundTransparency=.45,
+		BorderSizePixel=0,
+		Text="",
+		AutoButtonColor=false,
+		ZIndex=500
+	},self.Gui)
+	self.SearchOverlay=overlay
+
+	local panel=New("Frame",{
+		AnchorPoint=Vector2.new(.5,0),
+		Position=UDim2.new(.5,0,0,90),
+		Size=UDim2.fromOffset(520,420),
+		BackgroundColor3=self.Theme.Panel,
+		BorderSizePixel=0,
+		ZIndex=501
+	},overlay)
+	Corner(panel,12)
+	Stroke(panel,self.Neon and self.Theme.Accent or self.Theme.Border,1)
+	Pad(panel,12,12,12,12)
+
+	local search=New("TextBox",{
+		Size=UDim2.new(1,0,0,40),
+		BackgroundColor3=self.Theme.Control,
+		BorderSizePixel=0,
+		Text="",
+		PlaceholderText="Search tabs, sections and options...",
+		PlaceholderColor3=self.Theme.Muted,
+		TextColor3=self.Theme.Text,
+		TextSize=12,
+		Font=Enum.Font.Gotham,
+		ClearTextOnFocus=false,
+		ZIndex=502
+	},panel)
+	Corner(search,8)
+	Pad(search,12,12,0,0)
+
+	local results=New("ScrollingFrame",{
+		Position=UDim2.fromOffset(0,50),
+		Size=UDim2.new(1,0,1,-50),
+		BackgroundTransparency=1,
+		BorderSizePixel=0,
+		ScrollBarThickness=2,
+		ScrollBarImageColor3=self.Theme.Border,
+		CanvasSize=UDim2.new(),
+		ZIndex=502
+	},panel)
+
+	local layout=New("UIListLayout",{
+		Padding=UDim.new(0,5),
+		SortOrder=Enum.SortOrder.LayoutOrder
+	},results)
+
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		results.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+5)
+	end)
+
+	local function rebuild()
+		for _,child in ipairs(results:GetChildren()) do
+			if not child:IsA("UIListLayout") then
+				child:Destroy()
+			end
+		end
+
+		local q=string.lower(search.Text)
+
+		for _,tab in ipairs(self.Tabs) do
+			if not tab.IsFavorites then
+				for _,section in ipairs(tab.Sections) do
+					for _,component in ipairs(section.Components) do
+						local name=tostring(component.Name or component.Type or "Option")
+						local hay=string.lower(tab.Name.." "..section.Name.." "..name)
+
+						if q=="" or string.find(hay,q,1,true) then
+							local row=Button(results,"",1,self.Theme.Text,false)
+							row.Size=UDim2.new(1,-4,0,48)
+							row.BackgroundTransparency=0
+							row.BackgroundColor3=self.Theme.Card
+							row.ZIndex=503
+							Corner(row,7)
+
+							local nameLabel=Label(row,name,11,self.Theme.Text,true)
+							nameLabel.Position=UDim2.fromOffset(10,5)
+							nameLabel.Size=UDim2.new(1,-20,0,20)
+							nameLabel.ZIndex=504
+
+							local path=Label(row,tab.Name.."  /  "..section.Name,9,self.Theme.Muted,false)
+							path.Position=UDim2.fromOffset(10,25)
+							path.Size=UDim2.new(1,-20,0,16)
+							path.ZIndex=504
+
+							row.MouseButton1Click:Connect(function()
+								self:SelectTab(tab)
+								overlay:Destroy()
+								self.SearchOverlay=nil
+
+								if component.Card and component.Card.Parent then
+									local y=component.Card.AbsolutePosition.Y-section.Tab.Page.AbsolutePosition.Y
+									section.Tab.Page.CanvasPosition=Vector2.new(0,math.max(0,y-80))
+									local old=component.Card.BackgroundColor3
+									component.Card.BackgroundColor3=self.Theme.Accent
+									task.delay(.2,function()
+										if component.Card and component.Card.Parent then
+											Tween(component.Card,.25,{BackgroundColor3=old})
+										end
+									end)
+								end
+							end)
+						end
+					end
+				end
+			end
+		end
+	end
+
+	search:GetPropertyChangedSignal("Text"):Connect(rebuild)
+	overlay.MouseButton1Click:Connect(function()
+		overlay:Destroy()
+		self.SearchOverlay=nil
+	end)
+
+	search:CaptureFocus()
+	rebuild()
+end
 
 function Window:_EnsureFavoritesTab()
 	if self.FavoriteTab then
@@ -1592,19 +1828,164 @@ end
 
 function Section:AddPlayerDropdown(o)
 	o=o or {}
-	local selected=o.Default
-	local card,controls,c=self:_Base(o,o.Description and 70 or 62)
-	c.Type="PlayerDropdown"
 
-	local button=Button(controls,selected and selected.DisplayName or "Select player",11,self.Window.Theme.Text,false)
+	local maxPlayers=tonumber(o.MaxPlayers or o.Max or o.Limit) or 1
+	maxPlayers=math.max(1,math.floor(maxPlayers))
+
+	local selected={}
+	local selectedMap={}
+
+	local card,controls,c=self:_Base(
+		o,
+		o.Description and 70 or 62
+	)
+
+	c.Type="PlayerDropdown"
+	c.MaxPlayers=maxPlayers
+
+	local button=Button(
+		controls,
+		"Select player",
+		11,
+		self.Window.Theme.Text,
+		false
+	)
+
 	button.AnchorPoint=Vector2.new(1,.5)
 	button.Position=UDim2.new(1,0,.5,0)
 	button.Size=UDim2.fromOffset(155,34)
 	button.BackgroundTransparency=0
 	button.BackgroundColor3=self.Window.Theme.Control
-	Corner(button,7)
 
-	local popup
+	Corner(
+		button,
+		7
+	)
+
+	local popup=nil
+
+	local function selectedArray()
+		local result={}
+
+		for _,player in ipairs(selected) do
+			if player and player.Parent==Players then
+				table.insert(
+					result,
+					player
+				)
+			end
+		end
+
+		return result
+	end
+
+	local function refreshButton()
+		selected=selectedArray()
+		selectedMap={}
+
+		for _,player in ipairs(selected) do
+			selectedMap[player.UserId]=true
+		end
+
+		if #selected==0 then
+			button.Text=maxPlayers==1 and "Select player" or "Select players"
+		elseif #selected==1 then
+			button.Text=selected[1].DisplayName
+		else
+			button.Text=tostring(#selected).."/"..tostring(maxPlayers).." selected"
+		end
+	end
+
+	local function fire()
+		local result=selectedArray()
+
+		if o.Flag then
+			local names={}
+
+			for _,player in ipairs(result) do
+				table.insert(
+					names,
+					player.Name
+				)
+			end
+
+			self.Window.Flags[o.Flag]=maxPlayers==1 and names[1] or names
+		end
+
+		if maxPlayers==1 then
+			task.spawn(
+				o.Callback or function()
+				end,
+				result[1]
+			)
+		else
+			task.spawn(
+				o.Callback or function()
+				end,
+				result
+			)
+		end
+	end
+
+	local function notifyLimit()
+		self.Window:Notify({
+			Title="Player limit",
+			Content="O limite de pessoas para adicionar é "..tostring(maxPlayers)..".",
+			Duration=3
+		})
+	end
+
+	local function removePlayer(player)
+		for i=#selected,1,-1 do
+			if selected[i]==player then
+				table.remove(
+					selected,
+					i
+				)
+			end
+		end
+
+		selectedMap[player.UserId]=nil
+		refreshButton()
+		fire()
+	end
+
+	local function addPlayer(player)
+		if selectedMap[player.UserId] then
+			removePlayer(
+				player
+			)
+
+			return true
+		end
+
+		if #selected>=maxPlayers then
+			notifyLimit()
+
+			return false
+		end
+
+		if maxPlayers==1 then
+			table.clear(
+				selected
+			)
+
+			table.clear(
+				selectedMap
+			)
+		end
+
+		table.insert(
+			selected,
+			player
+		)
+
+		selectedMap[player.UserId]=true
+		refreshButton()
+		fire()
+
+		return true
+	end
 
 	local function close()
 		if popup then
@@ -1613,91 +1994,213 @@ function Section:AddPlayerDropdown(o)
 		end
 	end
 
-	local function selectPlayer(player)
-		selected=player
-		button.Text=player and player.DisplayName or "Select player"
-		close()
-		if o.Flag then
-			self.Window.Flags[o.Flag]=player and player.Name or nil
-		end
-		task.spawn(o.Callback or function() end,player)
-	end
-
 	button.MouseButton1Click:Connect(function()
 		if popup then
 			close()
+
 			return
 		end
 
-		popup=New("Frame",{
-			Position=UDim2.fromOffset(
-				math.max(8,button.AbsolutePosition.X-95),
-				button.AbsolutePosition.Y+button.AbsoluteSize.Y+5
-			),
-			Size=UDim2.fromOffset(250,300),
-			BackgroundColor3=self.Window.Theme.Panel,
-			BorderSizePixel=0,
-			ZIndex=180
-		},self.Window.Gui)
-		Corner(popup,9)
-		Stroke(popup,self.Window.Theme.Border,1)
-		Pad(popup,8,8,8,8)
+		popup=New(
+			"Frame",
+			{
+				Position=UDim2.fromOffset(
+					math.max(
+						8,
+						button.AbsolutePosition.X-145
+					),
+					button.AbsolutePosition.Y+button.AbsoluteSize.Y+5
+				),
+				Size=UDim2.fromOffset(
+					300,
+					340
+				),
+				BackgroundColor3=self.Window.Theme.Panel,
+				BorderSizePixel=0,
+				ZIndex=180
+			},
+			self.Window.Gui
+		)
 
-		local search=New("TextBox",{
-			Size=UDim2.new(1,0,0,32),
-			BackgroundColor3=self.Window.Theme.Control,
-			BorderSizePixel=0,
-			Text="",
-			PlaceholderText="Search player...",
-			PlaceholderColor3=self.Window.Theme.Muted,
-			TextColor3=self.Window.Theme.Text,
-			TextSize=11,
-			Font=Enum.Font.Gotham,
-			ClearTextOnFocus=false,
-			ZIndex=181
-		},popup)
-		Corner(search,7)
-		Pad(search,10,10,0,0)
+		Corner(
+			popup,
+			10
+		)
 
-		local list=New("ScrollingFrame",{
-			Position=UDim2.fromOffset(0,40),
-			Size=UDim2.new(1,0,1,-40),
-			BackgroundTransparency=1,
-			BorderSizePixel=0,
-			ScrollBarThickness=2,
-			ScrollBarImageColor3=self.Window.Theme.Border,
-			CanvasSize=UDim2.new(),
-			ZIndex=181
-		},popup)
+		Stroke(
+			popup,
+			self.Window.Theme.Border,
+			1
+		)
 
-		local layout=New("UIListLayout",{
-			Padding=UDim.new(0,5),
-			SortOrder=Enum.SortOrder.LayoutOrder
-		},list)
+		Pad(
+			popup,
+			9,
+			9,
+			9,
+			9
+		)
+
+		local header=Label(
+			popup,
+			"Players  •  "..tostring(#selected).."/"..tostring(maxPlayers),
+			11,
+			self.Window.Theme.Muted,
+			true
+		)
+
+		header.Size=UDim2.new(
+			1,
+			0,
+			0,
+			20
+		)
+
+		header.ZIndex=181
+
+		local search=New(
+			"TextBox",
+			{
+				Position=UDim2.fromOffset(
+					0,
+					27
+				),
+				Size=UDim2.new(
+					1,
+					0,
+					0,
+					34
+				),
+				BackgroundColor3=self.Window.Theme.Control,
+				BorderSizePixel=0,
+				Text="",
+				PlaceholderText="Search by display name or username",
+				PlaceholderColor3=self.Window.Theme.Muted,
+				TextColor3=self.Window.Theme.Text,
+				TextSize=11,
+				Font=Enum.Font.Gotham,
+				ClearTextOnFocus=false,
+				ZIndex=181
+			},
+			popup
+		)
+
+		Corner(
+			search,
+			7
+		)
+
+		Pad(
+			search,
+			10,
+			10,
+			0,
+			0
+		)
+
+		local list=New(
+			"ScrollingFrame",
+			{
+				Position=UDim2.fromOffset(
+					0,
+					70
+				),
+				Size=UDim2.new(
+					1,
+					0,
+					1,
+					-70
+				),
+				BackgroundTransparency=1,
+				BorderSizePixel=0,
+				ScrollBarThickness=2,
+				ScrollBarImageColor3=self.Window.Theme.Border,
+				CanvasSize=UDim2.new(),
+				ZIndex=181
+			},
+			popup
+		)
+
+		local layout=New(
+			"UIListLayout",
+			{
+				Padding=UDim.new(
+					0,
+					5
+				),
+				SortOrder=Enum.SortOrder.LayoutOrder
+			},
+			list
+		)
 
 		layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-			list.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+4)
+			list.CanvasSize=UDim2.fromOffset(
+				0,
+				layout.AbsoluteContentSize.Y+4
+			)
 		end)
 
 		local entries={}
 
-		local function add(player)
-			local row=Button(list,"",1,self.Window.Theme.Text,false)
-			row.Size=UDim2.new(1,-4,0,50)
+		local function refreshRows()
+			header.Text="Players  •  "..tostring(#selected).."/"..tostring(maxPlayers)
+
+			for _,entry in ipairs(entries) do
+				local active=selectedMap[entry.Player.UserId]==true
+
+				entry.Check.BackgroundColor3=active and self.Window.Theme.Accent or self.Window.Theme.Control
+				entry.CheckText.Text=active and "✓" or ""
+			end
+		end
+
+		local function addEntry(player)
+			local row=Button(
+				list,
+				"",
+				1,
+				self.Window.Theme.Text,
+				false
+			)
+
+			row.Size=UDim2.new(
+				1,
+				-4,
+				0,
+				56
+			)
+
 			row.BackgroundTransparency=0
 			row.BackgroundColor3=self.Window.Theme.Card
 			row.ZIndex=182
-			Corner(row,7)
 
-			local avatar=New("ImageLabel",{
-				Position=UDim2.fromOffset(7,7),
-				Size=UDim2.fromOffset(36,36),
-				BackgroundColor3=self.Window.Theme.Control,
-				BorderSizePixel=0,
-				Image="",
-				ZIndex=183
-			},row)
-			Corner(avatar,18)
+			Corner(
+				row,
+				8
+			)
+
+			local avatar=New(
+				"ImageLabel",
+				{
+					Position=UDim2.fromOffset(
+						8,
+						8
+					),
+					Size=UDim2.fromOffset(
+						40,
+						40
+					),
+					BackgroundColor3=self.Window.Theme.Control,
+					BorderSizePixel=0,
+					Image="",
+					ZIndex=183
+				},
+				row
+			)
+
+			Corner(
+				avatar,
+				20
+			)
 
 			task.spawn(function()
 				local ok,image=pcall(function()
@@ -1707,55 +2210,217 @@ function Section:AddPlayerDropdown(o)
 						Enum.ThumbnailSize.Size100x100
 					)
 				end)
+
 				if ok and avatar.Parent then
 					avatar.Image=image
 				end
 			end)
 
-			local display=Label(row,player.DisplayName,11,self.Window.Theme.Text,true)
-			display.Position=UDim2.fromOffset(52,6)
-			display.Size=UDim2.new(1,-58,0,19)
+			local display=Label(
+				row,
+				player.DisplayName,
+				11,
+				self.Window.Theme.Text,
+				true
+			)
+
+			display.Position=UDim2.fromOffset(
+				58,
+				7
+			)
+
+			display.Size=UDim2.new(
+				1,
+				-100,
+				0,
+				20
+			)
+
 			display.ZIndex=183
 
-			local username=Label(row,"@"..player.Name,10,self.Window.Theme.Muted,false)
-			username.Position=UDim2.fromOffset(52,25)
-			username.Size=UDim2.new(1,-58,0,18)
+			local username=Label(
+				row,
+				"@"..player.Name,
+				10,
+				self.Window.Theme.Muted,
+				false
+			)
+
+			username.Position=UDim2.fromOffset(
+				58,
+				28
+			)
+
+			username.Size=UDim2.new(
+				1,
+				-100,
+				0,
+				18
+			)
+
 			username.ZIndex=183
 
-			row.MouseButton1Click:Connect(function()
-				selectPlayer(player)
-			end)
+			local check=New(
+				"Frame",
+				{
+					AnchorPoint=Vector2.new(
+						1,
+						.5
+					),
+					Position=UDim2.new(
+						1,
+						-10,
+						.5,
+						0
+					),
+					Size=UDim2.fromOffset(
+						22,
+						22
+					),
+					BackgroundColor3=self.Window.Theme.Control,
+					BorderSizePixel=0,
+					ZIndex=183
+				},
+				row
+			)
 
-			table.insert(entries,{
+			Corner(
+				check,
+				6
+			)
+
+			local checkText=Label(
+				check,
+				"",
+				13,
+				self.Window.Theme.Text,
+				true
+			)
+
+			checkText.Size=UDim2.fromScale(
+				1,
+				1
+			)
+
+			checkText.TextXAlignment=Enum.TextXAlignment.Center
+			checkText.ZIndex=184
+
+			local entry={
 				Player=player,
-				Row=row
-			})
+				Row=row,
+				Check=check,
+				CheckText=checkText
+			}
+
+			table.insert(
+				entries,
+				entry
+			)
+
+			row.MouseButton1Click:Connect(function()
+				addPlayer(
+					player
+				)
+
+				refreshRows()
+			end)
 		end
 
 		for _,player in ipairs(Players:GetPlayers()) do
-			add(player)
+			addEntry(
+				player
+			)
 		end
 
 		local function filter()
-			local q=string.lower(search.Text)
+			local query=string.lower(
+				search.Text
+			)
 
 			for _,entry in ipairs(entries) do
 				local player=entry.Player
-				local hay=string.lower(player.DisplayName.." "..player.Name)
-				entry.Row.Visible=q=="" or string.find(hay,q,1,true)~=nil
+				local text=string.lower(
+					player.DisplayName.." "..player.Name
+				)
+
+				entry.Row.Visible=query=="" or string.find(
+					text,
+					query,
+					1,
+					true
+				)~=nil
 			end
 		end
 
-		search:GetPropertyChangedSignal("Text"):Connect(filter)
+		search:GetPropertyChangedSignal("Text"):Connect(
+			filter
+		)
+
+		refreshRows()
 	end)
 
 	function c:Get()
-		return selected
+		local result=selectedArray()
+
+		if maxPlayers==1 then
+			return result[1]
+		end
+
+		return result
 	end
 
-	function c:Set(player)
-		selectPlayer(player)
+	function c:Set(players)
+		table.clear(
+			selected
+		)
+
+		table.clear(
+			selectedMap
+		)
+
+		if typeof(players)=="Instance" and players:IsA("Player") then
+			players={
+				players
+			}
+		end
+
+		for _,player in ipairs(players or {}) do
+			if #selected>=maxPlayers then
+				break
+			end
+
+			if typeof(player)=="Instance" and player:IsA("Player") then
+				table.insert(
+					selected,
+					player
+				)
+
+				selectedMap[player.UserId]=true
+			end
+		end
+
+		refreshButton()
+		fire()
 	end
+
+	function c:Clear()
+		table.clear(
+			selected
+		)
+
+		table.clear(
+			selectedMap
+		)
+
+		refreshButton()
+		fire()
+	end
+
+	function c:GetLimit()
+		return maxPlayers
+	end
+
+	refreshButton()
 
 	return c
 end
