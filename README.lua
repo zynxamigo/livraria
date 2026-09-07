@@ -1,22 +1,5 @@
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-----------------------------------
-
 local LucidUI = {}
-LucidUI.Version = "5.6.0-pro"
+LucidUI.Version = "5.7.0-hub"
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -698,7 +681,7 @@ function Section:AddSlider(o)
 	return c
 end
 
-function Section:AddTextbox(o)
+function Section:AddTextboxField(o)
 	o=o or {}
 	local _,controls,c=self:_Base(o,o.Description and 64 or 56)
 	c.Type="Textbox"
@@ -2421,6 +2404,104 @@ function Section:AddPlayerDropdown(o)
 	end
 
 	refreshButton()
+
+	return c
+end
+
+
+function Section:AddLabel(text)
+	return self:AddParagraph({
+		Name=tostring(text or ""),
+		Content=""
+	})
+end
+
+function Section:AddBind(o)
+	o=o or {}
+	return self:AddKeybind({
+		Name=o.Name or "Keybind",
+		Description=o.Description,
+		Default=o.Default or o.Key or Enum.KeyCode.Unknown,
+		Mode=o.Hold and "Hold" or "Toggle",
+		Flag=o.Flag,
+		Callback=o.Callback
+	})
+end
+
+function Section:AddTextbox(o)
+	o=o or {}
+	return self:AddTextboxField({
+		Name=o.Name or "Textbox",
+		Description=o.Description,
+		Default=o.Default or "",
+		Placeholder=o.Placeholder or o.PlaceholderText or "",
+		ClearOnFocusLost=o.TextDisappear==true or o.RemoveTextAfterFocusLost==true,
+		Flag=o.Flag,
+		Callback=o.Callback
+	})
+end
+
+function Section:AddPlayerParagraph(userId)
+	userId=tonumber(userId)
+	local card=New("Frame",{
+		Size=UDim2.new(1,0,0,58),
+		BackgroundColor3=self.Window.Theme.Card,
+		BorderSizePixel=0
+	},self.Frame)
+	Corner(card,8)
+
+	local avatar=New("ImageLabel",{
+		Position=UDim2.fromOffset(9,9),
+		Size=UDim2.fromOffset(40,40),
+		BackgroundColor3=self.Window.Theme.Control,
+		BorderSizePixel=0,
+		Image=""
+	},card)
+	Corner(avatar,20)
+
+	local display=Label(card,"Loading player...",11,self.Window.Theme.Text,true)
+	display.Position=UDim2.fromOffset(60,8)
+	display.Size=UDim2.new(1,-70,0,20)
+
+	local username=Label(card,"User ID: "..tostring(userId or "N/A"),10,self.Window.Theme.Muted,false)
+	username.Position=UDim2.fromOffset(60,29)
+	username.Size=UDim2.new(1,-70,0,18)
+
+	task.spawn(function()
+		if not userId then return end
+
+		local okName,name=pcall(function()
+			return Players:GetNameFromUserIdAsync(userId)
+		end)
+
+		if okName and card.Parent then
+			display.Text=name
+			username.Text="@"..name.."  •  "..tostring(userId)
+		end
+
+		local okImage,image=pcall(function()
+			return Players:GetUserThumbnailAsync(
+				userId,
+				Enum.ThumbnailType.HeadShot,
+				Enum.ThumbnailSize.Size100x100
+			)
+		end)
+
+		if okImage and avatar.Parent then
+			avatar.Image=image
+		end
+	end)
+
+	local c={
+		Type="PlayerParagraph",
+		Window=self.Window,
+		Section=self,
+		Card=card,
+		Name="Player "..tostring(userId or "")
+	}
+
+	table.insert(self.Components,c)
+	table.insert(self.Window.Components,c)
 
 	return c
 end
