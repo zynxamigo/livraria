@@ -1,5 +1,5 @@
 local LucidUI = {}
-LucidUI.Version = "5.7.0-hub"
+LucidUI.Version = "5.wsws0-hub"
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
