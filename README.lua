@@ -25,8 +25,6 @@ local Theme = {
 LucidUI.Theme = Theme
 
 local Icons = {
-	Star = "rbxassetid://393353129",
-	Search = "rbxassetid://108401203679664",
 	Settings = "rbxassetid://130679451576739"
 }
 LucidUI.Icons = Icons
@@ -88,6 +86,60 @@ local function image(parent,id,size)
 		BackgroundTransparency=1,BorderSizePixel=0,Image=normalizeIcon(id),
 		ImageColor3=Theme.Muted,Size=UDim2.fromOffset(size or 17,size or 17)
 	},parent)
+end
+
+
+local function lineIcon(parent,kind,size,color)
+	size=size or 18
+	color=color or Theme.Muted
+	local holder=new("Frame",{BackgroundTransparency=1,BorderSizePixel=0,Size=UDim2.fromOffset(size,size)},parent)
+	local function line(x,y,w,h,rotation)
+		local f=new("Frame",{
+			AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(0,x,0,y),
+			Size=UDim2.fromOffset(w,h),Rotation=rotation or 0,
+			BackgroundColor3=color,BorderSizePixel=0
+		},holder)
+		corner(f,3)
+		return f
+	end
+	if kind=="Search" then
+		local ring=new("Frame",{
+			Position=UDim2.fromOffset(2,2),Size=UDim2.fromOffset(size-7,size-7),
+			BackgroundTransparency=1,BorderSizePixel=0
+		},holder)
+		corner(ring,50)
+		local st=stroke(ring,color,0)
+		st.Thickness=2
+		line(size-4,size-4,7,2,45)
+	elseif kind=="Star" then
+		local cx,cy=size/2,size/2
+		for i=0,4 do
+			local a1=math.rad(-90+i*144)
+			local a2=math.rad(-90+(i+1)*144)
+			local r=size*.39
+			local x1=cx+math.cos(a1)*r
+			local y1=cy+math.sin(a1)*r
+			local x2=cx+math.cos(a2)*r
+			local y2=cy+math.sin(a2)*r
+			local dx,dy=x2-x1,y2-y1
+			local len=math.sqrt(dx*dx+dy*dy)
+			local seg=line((x1+x2)/2,(y1+y2)/2,len,1.6,math.deg(math.atan2(dy,dx)))
+			seg.Name="Segment"
+		end
+	elseif kind=="Close" then
+		line(size/2,size/2,size*.62,2,45)
+		line(size/2,size/2,size*.62,2,-45)
+	elseif kind=="Minus" then
+		line(size/2,size/2,size*.62,2,0)
+	end
+	holder.SetColor=function(_,newColor)
+		color=newColor
+		for _,d in ipairs(holder:GetDescendants()) do
+			if d:IsA("Frame") and d~=holder and d.BackgroundTransparency<1 then d.BackgroundColor3=newColor end
+			if d:IsA("UIStroke") then d.Color=newColor end
+		end
+	end
+	return holder
 end
 
 local function safeParent(gui)
@@ -175,11 +227,14 @@ function LucidUI:CreateWindow(o)
 	},top)
 	local cl=new("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,7)},controls)
 
-	local fav=new("ImageButton",{
+	local fav=new("TextButton",{
 		LayoutOrder=1,Size=UDim2.fromOffset(34,34),BackgroundColor3=Theme.Surface2,
-		BorderSizePixel=0,AutoButtonColor=false,Image=Icons.Star,ImageColor3=Theme.Muted
+		BorderSizePixel=0,AutoButtonColor=false,Text=""
 	},controls)
 	corner(fav,8)
+	local favGlyph=lineIcon(fav,"Star",17,Theme.Muted)
+	favGlyph.AnchorPoint=Vector2.new(.5,.5)
+	favGlyph.Position=UDim2.fromScale(.5,.5)
 
 	local mini=button(controls,"—",18,Theme.Muted,true)
 	mini.LayoutOrder=2 mini.Size=UDim2.fromOffset(34,34) mini.BackgroundTransparency=0 mini.BackgroundColor3=Theme.Surface2 corner(mini,8)
@@ -204,12 +259,15 @@ function LucidUI:CreateWindow(o)
 		tabs.CanvasSize=UDim2.fromOffset(tabLayout.AbsoluteContentSize.X+10,0)
 	end)
 
-	local searchButton=new("ImageButton",{
+	local searchButton=new("TextButton",{
 		AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,0,.5,0),
 		Size=UDim2.fromOffset(36,36),BackgroundColor3=Theme.Surface2,BorderSizePixel=0,
-		AutoButtonColor=false,Image=Icons.Search,ImageColor3=Theme.Muted
+		AutoButtonColor=false,Text=""
 	},tabbar)
 	corner(searchButton,9)
+	local searchGlyph=lineIcon(searchButton,"Search",17,Theme.Muted)
+	searchGlyph.AnchorPoint=Vector2.new(.5,.5)
+	searchGlyph.Position=UDim2.fromScale(.5,.5)
 
 	local body=new("Frame",{Position=UDim2.fromOffset(0,64),Size=UDim2.new(1,0,1,-64),BackgroundTransparency=1},main)
 
@@ -279,9 +337,9 @@ function LucidUI:CreateWindow(o)
 	fav.MouseButton1Click:Connect(function()
 		self.FavoriteMode=not self.FavoriteMode
 		tween(fav,.14,{
-			ImageColor3=self.FavoriteMode and Theme.Favorite or Theme.Muted,
 			BackgroundColor3=self.FavoriteMode and Color3.fromRGB(40,31,12) or Theme.Surface2
 		})
+		favGlyph:SetColor(self.FavoriteMode and Theme.Favorite or Theme.Muted)
 		for _,c in ipairs(self.Components) do
 			if c.Star then c.Star.Visible=self.FavoriteMode end
 		end
@@ -422,20 +480,24 @@ function Section:_Card(name,description,height)
 
 	local title=label(card,name,13,Theme.Text,true)
 	title.Position=UDim2.fromOffset(12,description and 5 or 0)
-	title.Size=UDim2.new(1,-150,description and 0 or 1,description and 20 or 0)
+	title.Size=UDim2.new(1,-210,description and 0 or 1,description and 20 or 0)
 
 	if description then
 		local d=label(card,description,10,Theme.Muted,false)
 		d.Position=UDim2.fromOffset(12,26)
-		d.Size=UDim2.new(1,-150,0,16)
+		d.Size=UDim2.new(1,-210,0,16)
 	end
 
-	local star=new("ImageButton",{
+	local star=new("TextButton",{
 		Visible=self.Window.FavoriteMode,AnchorPoint=Vector2.new(1,.5),
 		Position=UDim2.new(1,-9,.5,0),Size=UDim2.fromOffset(24,24),
 		BackgroundTransparency=1,BorderSizePixel=0,AutoButtonColor=false,
-		Image=Icons.Star,ImageColor3=Theme.Muted,ZIndex=10
+		Text="",ZIndex=10
 	},card)
+	local starGlyph=lineIcon(star,"Star",15,Theme.Muted)
+	starGlyph.AnchorPoint=Vector2.new(.5,.5)
+	starGlyph.Position=UDim2.fromScale(.5,.5)
+	starGlyph.ZIndex=11
 
 	local component={
 		Name=name,Description=description or "",Tab=self.Tab,Section=self,
@@ -445,7 +507,7 @@ function Section:_Card(name,description,height)
 
 	star.MouseButton1Click:Connect(function()
 		component.Favorited=not component.Favorited
-		tween(star,.12,{ImageColor3=component.Favorited and Theme.Favorite or Theme.Muted})
+		starGlyph:SetColor(component.Favorited and Theme.Favorite or Theme.Muted)
 		self.Window:_BuildFavorites()
 	end)
 
@@ -561,10 +623,11 @@ function Section:AddDropdown(o)
 	pick.MouseButton1Click:Connect(function()
 		if popup then closePop() return end
 		popup=new("Frame",{
-			AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-42,1,5),
+			Position=UDim2.fromOffset(pick.AbsolutePosition.X+pick.AbsoluteSize.X-190,pick.AbsolutePosition.Y+pick.AbsoluteSize.Y+5),
 			Size=UDim2.fromOffset(190,math.min(#values*34+12,200)),
-			BackgroundColor3=Theme.Surface,BorderSizePixel=0,ZIndex=30
-		},card)
+			BackgroundColor3=Theme.Surface,BorderSizePixel=0,ZIndex=130
+		},self.Window.Gui)
+		self.Window:RegisterPopup(popup)
 		corner(popup,9) stroke(popup,Theme.Border,.05)
 		local list=new("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,CanvasSize=UDim2.fromOffset(0,#values*34+8),ZIndex=31},popup)
 		pad(list,6,6,6,6)
@@ -599,23 +662,24 @@ function Section:AddPlayerDropdown(o)
 	pick.MouseButton1Click:Connect(function()
 		if popup then cleanup() return end
 		popup=new("Frame",{
-			AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-42,1,5),
+			Position=UDim2.fromOffset(pick.AbsolutePosition.X+pick.AbsoluteSize.X-290,pick.AbsolutePosition.Y+pick.AbsoluteSize.Y+5),
 			Size=UDim2.fromOffset(290,275),BackgroundColor3=Theme.Surface,
-			BorderSizePixel=0,ZIndex=40
-		},card)
+			BorderSizePixel=0,ZIndex=140
+		},self.Window.Gui)
+		self.Window:RegisterPopup(popup)
 		corner(popup,10) stroke(popup,Theme.Border,.05)
 		local search=new("TextBox",{
 			Position=UDim2.fromOffset(8,8),Size=UDim2.new(1,-16,0,34),
 			BackgroundColor3=Theme.Surface2,BorderSizePixel=0,Text="",
 			PlaceholderText="Search player...",PlaceholderColor3=Theme.Muted,
 			TextColor3=Theme.Text,TextSize=11,Font=Enum.Font.Gotham,
-			ClearTextOnFocus=false,ZIndex=41
+			ClearTextOnFocus=false,ZIndex=141
 		},popup)
 		corner(search,7) pad(search,10,10,0,0)
 		local list=new("ScrollingFrame",{
 			Position=UDim2.fromOffset(8,50),Size=UDim2.new(1,-16,1,-58),
 			BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,
-			ScrollBarImageColor3=Theme.Border,CanvasSize=UDim2.new(),ZIndex=41
+			ScrollBarImageColor3=Theme.Border,CanvasSize=UDim2.new(),ZIndex=141
 		},popup)
 		new("UIListLayout",{Padding=UDim.new(0,5)},list)
 		local function rebuild()
@@ -627,17 +691,17 @@ function Section:AddPlayerDropdown(o)
 				if q=="" or hay:find(q,1,true) then
 					count+=1
 					local row=button(list,"",11,Theme.Text,false)
-					row.Size=UDim2.new(1,0,0,44) row.BackgroundTransparency=0 row.BackgroundColor3=Theme.Surface2 row.ZIndex=42 corner(row,7)
-					local avatar=new("ImageLabel",{Position=UDim2.fromOffset(5,5),Size=UDim2.fromOffset(34,34),BackgroundColor3=Theme.Surface3,BorderSizePixel=0,ZIndex=43},row)
+					row.Size=UDim2.new(1,0,0,44) row.BackgroundTransparency=0 row.BackgroundColor3=Theme.Surface2 row.ZIndex=142 corner(row,7)
+					local avatar=new("ImageLabel",{Position=UDim2.fromOffset(5,5),Size=UDim2.fromOffset(34,34),BackgroundColor3=Theme.Surface3,BorderSizePixel=0,ZIndex=143},row)
 					corner(avatar,18)
 					task.spawn(function()
 						local ok,img=pcall(function() return Players:GetUserThumbnailAsync(plr.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size100x100) end)
 						if ok and avatar.Parent then avatar.Image=img end
 					end)
 					local dn=label(row,plr.DisplayName,11,Theme.Text,true)
-					dn.Position=UDim2.fromOffset(47,4) dn.Size=UDim2.new(1,-52,0,19) dn.ZIndex=43
+					dn.Position=UDim2.fromOffset(47,4) dn.Size=UDim2.new(1,-52,0,19) dn.ZIndex=143
 					local un=label(row,"@"..plr.Name,9,Theme.Muted,false)
-					un.Position=UDim2.fromOffset(47,22) un.Size=UDim2.new(1,-52,0,16) un.ZIndex=43
+					un.Position=UDim2.fromOffset(47,22) un.Size=UDim2.new(1,-52,0,16) un.ZIndex=143
 					row.MouseButton1Click:Connect(function()
 						selected=plr pick.Text=plr.DisplayName cleanup() task.spawn(o.Callback or function() end,plr)
 					end)
@@ -666,7 +730,7 @@ function Window:_BuildFavorites()
 		return
 	end
 	if not self.FavoritesTab then
-		self.FavoritesTab=self:AddTab({Name="Favorites",Icon=Icons.Star,Internal=true})
+		self.FavoritesTab=self:AddTab({Name="Favorites",Internal=true})
 		self.FavoritesTab.Button.LayoutOrder=-100
 	end
 	self.FavoritesTab.Button.Visible=true
@@ -979,7 +1043,7 @@ end
 function Window:SetAccent(color)
 	Theme.Accent=color
 	if self.FavoriteButton then
-		self.FavoriteButton.ImageColor3=self.FavoriteMode and Theme.Favorite or Theme.Muted
+		self.FavoriteButton.BackgroundColor3=self.FavoriteMode and Color3.fromRGB(40,31,12) or Theme.Surface2
 	end
 	for _,tab in ipairs(self.Tabs) do
 		if tab.Indicator then tab.Indicator.BackgroundColor3=color end
@@ -1037,9 +1101,22 @@ function Window:ClosePopups(except)
 	end
 end
 
+
+function Window:ClampPopup(popup)
+	task.defer(function()
+		if not popup or not popup.Parent then return end
+		local viewport=workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920,1080)
+		local x=math.clamp(popup.AbsolutePosition.X,8,math.max(8,viewport.X-popup.AbsoluteSize.X-8))
+		local y=math.clamp(popup.AbsolutePosition.Y,8,math.max(8,viewport.Y-popup.AbsoluteSize.Y-8))
+		popup.Position=UDim2.fromOffset(x,y)
+	end)
+	return popup
+end
+
 function Window:RegisterPopup(popup)
 	self:ClosePopups(popup)
 	self.Popups[popup]=true
+	self:ClampPopup(popup)
 	return popup
 end
 
@@ -1656,17 +1733,17 @@ function Section:AddMultiDropdown(o)
 	pick.MouseButton1Click:Connect(function()
 		if popup then popup:Destroy() popup=nil return end
 		popup=new("Frame",{
-			AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-42,1,5),
+			Position=UDim2.fromOffset(pick.AbsolutePosition.X+pick.AbsoluteSize.X-210,pick.AbsolutePosition.Y+pick.AbsoluteSize.Y+5),
 			Size=UDim2.fromOffset(210,math.min(#values*35+12,220)),
-			BackgroundColor3=Theme.Surface,BorderSizePixel=0,ZIndex=60
-		},card)
+			BackgroundColor3=Theme.Surface,BorderSizePixel=0,ZIndex=160
+		},self.Window.Gui)
 		corner(popup,9)
 		stroke(popup,Theme.Border,.05)
 		self.Window:RegisterPopup(popup)
 
 		local list=new("ScrollingFrame",{
 			Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-			ScrollBarThickness=2,CanvasSize=UDim2.fromOffset(0,#values*35+8),ZIndex=61
+			ScrollBarThickness=2,CanvasSize=UDim2.fromOffset(0,#values*35+8),ZIndex=161
 		},popup)
 		pad(list,6,6,6,6)
 		new("UIListLayout",{Padding=UDim.new(0,4)},list)
@@ -1676,20 +1753,20 @@ function Section:AddMultiDropdown(o)
 			row.Size=UDim2.new(1,0,0,31)
 			row.BackgroundTransparency=0
 			row.BackgroundColor3=Theme.Surface2
-			row.ZIndex=62
+			row.ZIndex=162
 			corner(row,6)
 
 			local check=new("Frame",{
 				Position=UDim2.new(0,7,.5,-7),Size=UDim2.fromOffset(14,14),
 				BackgroundColor3=selected[value] and Theme.Accent or Theme.Surface3,
-				BorderSizePixel=0,ZIndex=63
+				BorderSizePixel=0,ZIndex=163
 			},row)
 			corner(check,4)
 
 			local tx=label(row,tostring(value),10,Theme.Text,false)
 			tx.Position=UDim2.fromOffset(29,0)
 			tx.Size=UDim2.new(1,-35,1,0)
-			tx.ZIndex=63
+			tx.ZIndex=163
 
 			row.MouseButton1Click:Connect(function()
 				selected[value]=not selected[value]
@@ -1738,17 +1815,17 @@ function Section:AddColorPicker(o)
 	preview.MouseButton1Click:Connect(function()
 		if popup then popup:Destroy() popup=nil return end
 		popup=new("Frame",{
-			AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-42,1,5),
+			Position=UDim2.fromOffset(preview.AbsolutePosition.X+preview.AbsoluteSize.X-250,preview.AbsolutePosition.Y+preview.AbsoluteSize.Y+5),
 			Size=UDim2.fromOffset(250,225),BackgroundColor3=Theme.Surface,
-			BorderSizePixel=0,ZIndex=70
-		},card)
+			BorderSizePixel=0,ZIndex=170
+		},self.Window.Gui)
 		corner(popup,10)
 		stroke(popup,Theme.Border,.05)
 		self.Window:RegisterPopup(popup)
 
 		local sv=new("Frame",{
 			Position=UDim2.fromOffset(10,10),Size=UDim2.new(1,-20,0,150),
-			BackgroundColor3=Color3.fromHSV(hue,1,1),BorderSizePixel=0,ZIndex=71
+			BackgroundColor3=Color3.fromHSV(hue,1,1),BorderSizePixel=0,ZIndex=171
 		},popup)
 		corner(sv,7)
 
@@ -1762,7 +1839,7 @@ function Section:AddColorPicker(o)
 
 		local black=new("Frame",{
 			Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(),
-			BackgroundTransparency=1,BorderSizePixel=0,ZIndex=72
+			BackgroundTransparency=1,BorderSizePixel=0,ZIndex=172
 		},sv)
 		corner(black,7)
 		local bg=new("UIGradient",{
@@ -1776,7 +1853,7 @@ function Section:AddColorPicker(o)
 
 		local hueBar=new("Frame",{
 			Position=UDim2.fromOffset(10,170),Size=UDim2.new(1,-20,0,18),
-			BorderSizePixel=0,ZIndex=71
+			BorderSizePixel=0,ZIndex=171
 		},popup)
 		corner(hueBar,6)
 		new("UIGradient",{
@@ -1796,7 +1873,7 @@ function Section:AddColorPicker(o)
 			BackgroundColor3=Theme.Surface2,BorderSizePixel=0,
 			Text=string.format("#%02X%02X%02X",math.floor(value.R*255),math.floor(value.G*255),math.floor(value.B*255)),
 			TextColor3=Theme.Text,TextSize=10,Font=Enum.Font.Gotham,
-			ClearTextOnFocus=false,ZIndex=71
+			ClearTextOnFocus=false,ZIndex=171
 		},popup)
 		corner(hex,6)
 
