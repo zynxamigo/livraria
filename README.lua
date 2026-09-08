@@ -1,5 +1,5 @@
 local LucidUI = {}
-LucidUI.Version = "5.wsws0-hub"
+LucidUI.Version = "6.0.0-orion-compat"
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -150,7 +150,7 @@ function LucidUI:CreateWindow(o)
 	self.Gui=gui
 	gui:SetAttribute("LucidUIRuntime",true)
 
-	if o.Loading~=false then
+	if o.Loading==true then
 		local loading=New("Frame",{
 			Name="LucidLoading",
 			Size=UDim2.fromScale(1,1),
@@ -320,32 +320,29 @@ function LucidUI:CreateWindow(o)
 		if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
 	end))
 
-\tfunction self:SetMouseUnlocked(state)
-		if not self.FirstP then
-			return
-		end
-
+	function self:SetMouseUnlocked(state)
+		if not self.FirstP then return end
 		state=state==true
 
-		if state and not self.MouseUnlocked then
-			self.StoredMouseBehavior=UIS.MouseBehavior
-			self.StoredMouseIcon=UIS.MouseIconEnabled
-		end
-
-		self.MouseUnlocked=state
-
-		if state then
-			UIS.MouseBehavior=Enum.MouseBehavior.Default
-			UIS.MouseIconEnabled=true
-		else
-			if self.StoredMouseBehavior then
-				UIS.MouseBehavior=self.StoredMouseBehavior
+		pcall(function()
+			if state and not self.MouseUnlocked then
+				self.StoredMouseBehavior=UIS.MouseBehavior
+				self.StoredMouseIcon=UIS.MouseIconEnabled
 			end
 
-			if self.StoredMouseIcon~=nil then
-				UIS.MouseIconEnabled=self.StoredMouseIcon
+			self.MouseUnlocked=state
+
+			if state then
+				UIS.MouseIconEnabled=true
+			else
+				if self.StoredMouseBehavior then
+					UIS.MouseBehavior=self.StoredMouseBehavior
+				end
+				if self.StoredMouseIcon~=nil then
+					UIS.MouseIconEnabled=self.StoredMouseIcon
+				end
 			end
-		end
+		end)
 	end
 
 	function self:SetVisible(v)
@@ -413,7 +410,7 @@ function LucidUI:CreateWindow(o)
 		end
 	end))
 
-\ttable.insert(self.Connections,UIS.InputEnded:Connect(function(i)
+	table.insert(self.Connections,UIS.InputEnded:Connect(function(i)
 		if self.FirstP and i.UserInputType==Enum.UserInputType.MouseButton2 then
 			self.CameraDrag=false
 
@@ -423,10 +420,6 @@ function LucidUI:CreateWindow(o)
 			end
 		end
 	end))
-
-	if self.FirstP then
-		self:SetMouseUnlocked(true)
-	end
 
 	if style.Background then
 		local b=style.Background
@@ -530,14 +523,52 @@ function Window:SelectTab(tab)
 end
 
 function Tab:AddSection(name)
-	local s=setmetatable({Window=self.Window,Tab=self,Name=name or "Section",Components={}},Section)
-	local frame=New("Frame",{Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=self.Window.Theme.Panel,BorderSizePixel=0},self.Page)
-	Corner(frame,10) Stroke(frame,self.Window.Theme.Border,1) Pad(frame,12,12,12,12)
-	local layout=New("UIListLayout",{Padding=UDim.new(0,9),SortOrder=Enum.SortOrder.LayoutOrder},frame)
+	local s=setmetatable({
+		Window=self.Window,
+		Tab=self,
+		Name=name or "Section",
+		Components={}
+	},Section)
+
+	local frame=New("Frame",{
+		Size=UDim2.new(1,0,0,48),
+		AutomaticSize=Enum.AutomaticSize.None,
+		BackgroundColor3=self.Window.Theme.Panel,
+		BorderSizePixel=0,
+		ClipsDescendants=false
+	},self.Page)
+
+	Corner(frame,10)
+	Stroke(frame,self.Window.Theme.Border,1)
+	Pad(frame,12,12,12,12)
+
+	local layout=New("UIListLayout",{
+		Padding=UDim.new(0,9),
+		SortOrder=Enum.SortOrder.LayoutOrder
+	},frame)
+
 	local title=Label(frame,s.Name,11,self.Window.Theme.Muted,true)
 	title.Size=UDim2.new(1,0,0,24)
+	title.LayoutOrder=-100000
+
+	local function resize()
+		local padding=24
+		frame.Size=UDim2.new(
+			1,
+			0,
+			0,
+			math.max(48,layout.AbsoluteContentSize.Y+padding)
+		)
+	end
+
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
+	task.defer(resize)
+
 	s.Frame=frame
+	s.Layout=layout
+
 	table.insert(self.Sections,s)
+
 	return s
 end
 
@@ -558,6 +589,17 @@ function Section:_Base(o,height)
 	local controls=New("Frame",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-12,.5,0),Size=UDim2.fromOffset(160,height or 58),BackgroundTransparency=1},card)
 	local c={Window=w,Section=self,Card=card,Controls=controls,Name=o.Name or "Option"}
 	table.insert(self.Components,c)
+
+	task.defer(function()
+		if self.Layout and self.Frame and self.Frame.Parent then
+			self.Frame.Size=UDim2.new(
+				1,
+				0,
+				0,
+				math.max(48,self.Layout.AbsoluteContentSize.Y+24)
+			)
+		end
+	end)
 
 	card.InputBegan:Connect(function(input)
 		if input.UserInputType==Enum.UserInputType.MouseButton1 and w.FavoriteMode then
@@ -734,6 +776,7 @@ function Section:AddDropdown(o)
 
 	local c={Type="Dropdown",Window=self.Window,Section=self,Card=card,Name=o.Name or "Dropdown"}
 	table.insert(self.Components,c)
+	task.defer(function() if self.Layout then self.Frame.Size=UDim2.new(1,0,0,math.max(48,self.Layout.AbsoluteContentSize.Y+24)) end end)
 	local open=false
 
 	local function setOpen(state)
@@ -797,6 +840,7 @@ function Section:AddRadioGroup(o)
 	New("UIListLayout",{Padding=UDim.new(0,2)},list)
 	local c={Type="RadioGroup",Window=self.Window,Section=self,Card=card,Value=o.Default}
 	table.insert(self.Components,c)
+	task.defer(function() if self.Layout then self.Frame.Size=UDim2.new(1,0,0,math.max(48,self.Layout.AbsoluteContentSize.Y+24)) end end)
 	local rows={}
 	local function set(v,fire)
 		c.Value=v
@@ -2952,6 +2996,128 @@ function Window:Destroy()
 	end
 	if self.Gui then
 		pcall(function() self.Gui:Destroy() end)
+	end
+end
+
+
+local function CompatCleanText(text)
+	text=tostring(text or "")
+	return text:gsub("<.->","")
+end
+
+local function CompatWrapTab(tab)
+	local proxy={_LucidTab=tab,_CurrentSection=nil}
+
+	local function S(self)
+		if not self._CurrentSection then
+			self._CurrentSection=self._LucidTab:AddSection("General")
+		end
+		return self._CurrentSection
+	end
+
+	function proxy:AddSection(o)
+		local name=type(o)=="table" and o.Name or o
+		self._CurrentSection=self._LucidTab:AddSection(CompatCleanText(name or "Section"))
+		return self._CurrentSection
+	end
+
+	function proxy:AddToggle(o)
+		o=o or {}
+		return S(self):AddToggle({Name=CompatCleanText(o.Name or "Toggle"),Description=o.Description,Default=o.Default==true,Flag=o.Flag,Bind=o.Bind,Callback=o.Callback})
+	end
+
+	function proxy:AddSlider(o)
+		o=o or {}
+		return S(self):AddSlider({Name=CompatCleanText(o.Name or "Slider"),Description=o.Description,Min=o.Min or 0,Max=o.Max or 100,Default=o.Default~=nil and o.Default or o.Min or 0,Increment=o.Increment or 1,Suffix=o.ValueName or o.Suffix or "",Flag=o.Flag,Callback=o.Callback})
+	end
+
+	function proxy:AddButton(o)
+		o=o or {}
+		return S(self):AddButton({Name=CompatCleanText(o.Name or "Button"),Description=o.Description,ActionText=o.ActionText or "Run",Callback=o.Callback})
+	end
+
+	function proxy:AddDropdown(o)
+		o=o or {}
+		return S(self):AddDropdown({Name=CompatCleanText(o.Name or "Dropdown"),Description=o.Description,Options=o.Options or {},Default=o.Default,Flag=o.Flag,Callback=o.Callback})
+	end
+
+	function proxy:AddTextbox(o)
+		o=o or {}
+		return S(self):AddTextbox({Name=CompatCleanText(o.Name or "Textbox"),Description=o.Description,Default=o.Default or "",Placeholder=o.Placeholder or o.PlaceholderText or "",ClearOnFocusLost=o.TextDisappear==true or o.RemoveTextAfterFocusLost==true,Flag=o.Flag,Callback=o.Callback})
+	end
+
+	function proxy:AddBind(o)
+		o=o or {}
+		return S(self):AddKeybind({Name=CompatCleanText(o.Name or "Keybind"),Description=o.Description,Default=o.Default or Enum.KeyCode.Unknown,Mode=o.Hold and "Hold" or "Toggle",Flag=o.Flag,Callback=o.Callback})
+	end
+
+	function proxy:AddParagraph(title,content)
+		if type(title)=="table" then content=title.Content title=title.Title or title.Name end
+		return S(self):AddParagraph({Name=CompatCleanText(title or ""),Content=CompatCleanText(content or "")})
+	end
+
+	function proxy:AddLabel(text)
+		return S(self):AddParagraph({Name=CompatCleanText(text or ""),Content=""})
+	end
+
+	function proxy:AddPlayerParagraph(userId)
+		return S(self):AddPlayerParagraph(userId)
+	end
+
+	function proxy:AddPlayerDropdown(o)
+		o=o or {}
+		local limit=tonumber(o.MaxPlayers or o.Max or o.Limit) or 100
+		return S(self):AddPlayerDropdown({
+			Name=CompatCleanText(o.Name or "Players"),
+			Description=o.Description,
+			MaxPlayers=limit,
+			Flag=o.Flag,
+			Callback=function(players)
+				local result={}
+				if typeof(players)=="Instance" and players:IsA("Player") then
+					result={players.Name}
+				else
+					for _,p in ipairs(players or {}) do
+						table.insert(result,typeof(p)=="Instance" and p:IsA("Player") and p.Name or tostring(p))
+					end
+				end
+				if o.Callback then o.Callback(result) end
+			end
+		})
+	end
+
+	return proxy
+end
+
+function LucidUI:MakeWindow(o)
+	o=o or {}
+	local w=self:CreateWindow({
+		Title=CompatCleanText(o.Name or "Lucid"),
+		Subtitle=o.Subtitle or "",
+		ToggleKey=o.ToggleKey or Enum.KeyCode.Tab,
+		FirstP=o.FirstP~=false,
+		Loading=o.IntroEnabled==true,
+		LoadingTitle=o.IntroText or o.Name,
+		Style={Shape=o.Shape or "Rounded",Accent=o.Accent or Color3.fromRGB(255,170,0),Neon=o.Neon==true}
+	})
+	local addTab=w.AddTab
+	function w:MakeTab(t)
+		t=t or {}
+		return CompatWrapTab(addTab(self,CompatCleanText(t.Name or "Tab")))
+	end
+	function w:Init() return self end
+	self._CompatLastWindow=w
+	return w
+end
+
+LucidUI.Themes=LucidUI.Themes or {}
+LucidUI.SelectedTheme=LucidUI.SelectedTheme or "Lucid"
+
+function LucidUI:MakeNotification(o)
+	o=o or {}
+	local w=self._CompatLastWindow
+	if w then
+		w:Notify({Title=CompatCleanText(o.Name or o.Title or "Notification"),Content=CompatCleanText(o.Content or o.Text or ""),Duration=o.Time or o.Duration or 4})
 	end
 end
 
